@@ -6,8 +6,9 @@ using static Deskbook.Tests.Build;
 namespace Deskbook.Tests;
 
 /// <summary>
-/// Bond pricing and the bond book. Expected prices come from a separate Python implementation of the same street
-/// convention (not from this C#), printed to 8 decimals; the book's expected numbers come from the same script.
+/// Bond pricing and the bond book. Expected prices come from tools/reference/bond_reference.py, a separate Python
+/// implementation of the same street convention (not from this C#), printed to 8 decimals; the book's expected
+/// numbers come from the same script.
 /// </summary>
 public class BondTests
 {

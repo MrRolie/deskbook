@@ -47,7 +47,7 @@ public static class WebApp
                 else
                 {
                     context.Response.ContentType = "text/html; charset=utf-8";
-                    await context.Response.WriteAsync(Layout.Page("Database unavailable", Tab.Fx, "",
+                    await context.Response.WriteAsync(Layout.Page("Database unavailable", Tab.Fx, null,
                         Views.Message("Database unavailable", message), Array.Empty<string>(), null, Attribution.Source));
                 }
             }
@@ -64,15 +64,14 @@ public static class WebApp
             try
             {
                 var book = await new BookService(store).BuildAsync(bookDate);
-                var translation = currency is null ? null : Translation.Translate(currency.Value,
-                    await store.LoadRatesAsync(book.Date), book.PreviousDate is null ? null : await store.LoadRatesAsync(book.PreviousDate.Value),
-                    book.ValueCad, book.PreviousValueCad, new[] { ("new_trades", book.NewTradesPnlCad), ("revaluation", book.RevaluationPnlCad) });
-                return Html(Layout.Page($"FX book, {Pages.Html.LongDate(book.Date)}", Tab.Fx, nav.Query(book.Date),
-                    Views.FxBook(book, ribbon, translation, nav, calendar), currencies, currency?.Code, Attribution.Source));
+                var (translation, untranslated) = await TranslateAsync(store, currency, book.Date, book.PreviousDate, book.ValueCad, book.PreviousValueCad,
+                    new[] { ("new_trades", book.NewTradesPnlCad), ("revaluation", book.RevaluationPnlCad) });
+                return Html(Layout.Page($"FX book, {Pages.Html.LongDate(book.Date)}", Tab.Fx, book.Date,
+                    Views.FxBook(book, ribbon, translation, nav, calendar) + untranslated, currencies, currency?.Code, Attribution.Source));
             }
             catch (BookRefusedException refusal)
             {
-                return Html(Layout.Page("No book", Tab.Fx, nav.Query(bookDate), Views.Refused(day, refusal.Reasons, ribbon, nav),
+                return Html(Layout.Page("No book", Tab.Fx, bookDate, Views.Refused(day, refusal.Reasons, ribbon, nav),
                     currencies, currency?.Code, Attribution.Source), 409);
             }
         });
@@ -90,15 +89,14 @@ public static class WebApp
                 var book = await new BondBookService(bonds).BuildAsync(bookDate);
                 var today = await bonds.LoadCurveAsync(book.Date);
                 var before = book.PreviousDate is null ? null : await bonds.LoadCurveAsync(book.PreviousDate.Value);
-                var translation = currency is null ? null : Translation.Translate(currency.Value,
-                    await store.LoadRatesAsync(book.Date), book.PreviousDate is null ? null : await store.LoadRatesAsync(book.PreviousDate.Value),
-                    book.ValueCad, book.PreviousValueCad, new[] { ("held", book.HeldPnlCad), ("new_trades", book.NewTradesPnlCad) });
-                return Html(Layout.Page($"Bond book, {Pages.Html.LongDate(book.Date)}", Tab.Bonds, nav.Query(book.Date),
-                    Views.BondBook(book, ribbon, translation, nav, calendar, today, before), currencies, currency?.Code, BondReport.Source));
+                var (translation, untranslated) = await TranslateAsync(store, currency, book.Date, book.PreviousDate, book.ValueCad, book.PreviousValueCad,
+                    new[] { ("held", book.HeldPnlCad), ("new_trades", book.NewTradesPnlCad) });
+                return Html(Layout.Page($"Bond book, {Pages.Html.LongDate(book.Date)}", Tab.Bonds, book.Date,
+                    Views.BondBook(book, ribbon, translation, nav, calendar, today, before) + untranslated, currencies, currency?.Code, BondReport.Source));
             }
             catch (BookRefusedException refusal)
             {
-                return Html(Layout.Page("No bond book", Tab.Bonds, nav.Query(bookDate), Views.Refused(day, refusal.Reasons, ribbon, nav),
+                return Html(Layout.Page("No bond book", Tab.Bonds, bookDate, Views.Refused(day, refusal.Reasons, ribbon, nav),
                     currencies, currency?.Code, BondReport.Source), 409);
             }
         });
@@ -108,7 +106,7 @@ public static class WebApp
             var runs = await recon.ListRunsAsync();
             var run = runs.Count == 0 ? null : runs[^1];
             var breaks = run is null ? Array.Empty<StoredBreak>() : await recon.LoadBreaksAsync(run.Id);
-            return Html(Layout.Page("Breaks", Tab.Breaks, "", Views.Breaks(run, breaks), Array.Empty<string>(), null, Attribution.Source));
+            return Html(Layout.Page("Breaks", Tab.Breaks, null, Views.Breaks(run, breaks), Array.Empty<string>(), null, Attribution.Source));
         });
 
         app.MapGet("/api/book", async (string? date, PostgresStore store) =>
@@ -140,10 +138,29 @@ public static class WebApp
         return app;
     }
 
+    /// <summary>
+    /// The book in the second currency, or, when that currency has no rate for the day or the day before, a note
+    /// saying so: the book itself exists and is still shown in CAD.
+    /// </summary>
+    private static async Task<(Translation? Translation, string Note)> TranslateAsync(PostgresStore store, Currency? currency, DateOnly date,
+        DateOnly? previousDate, decimal valueCad, decimal previousValueCad, IReadOnlyList<(string, decimal)> partsCad)
+    {
+        if (currency is null) return (null, "");
+        try
+        {
+            return (Translation.Translate(currency.Value, await store.LoadRatesAsync(date),
+                previousDate is null ? null : await store.LoadRatesAsync(previousDate.Value), valueCad, previousValueCad, partsCad), "");
+        }
+        catch (BookRefusedException refusal)
+        {
+            return (null, Views.Message($"Not shown in {currency.Value.Code}", string.Join("; ", refusal.Reasons) + ". The book above is in CAD."));
+        }
+    }
+
     private static IResult Html(string page, int status = 200) => Results.Content(page, "text/html; charset=utf-8", statusCode: status);
 
     private static IResult BadRequest(string problem, Tab tab) =>
-        Html(Layout.Page("Bad request", tab, "", Views.Message("That address is not understood", problem), Array.Empty<string>(), null, Attribution.Source), 400);
+        Html(Layout.Page("Bad request", tab, null, Views.Message("That address is not understood", problem), Array.Empty<string>(), null, Attribution.Source), 400);
 
     private static bool TryParse(string? date, string? ccy, out DateOnly? bookDate, out Currency? currency, out string? problem)
     {

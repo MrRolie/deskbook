@@ -10,12 +10,15 @@ internal enum Tab { Fx, Bonds, Breaks }
 /// </summary>
 internal static class Layout
 {
-    /// <param name="query">The current date and currency as a query string, carried across the three views.</param>
+    /// <param name="date">The day this view shows, kept when the currency changes; null for the latest day.</param>
     /// <param name="currencies">Currencies the picker offers (CAD is always first); empty hides the picker.</param>
-    public static string Page(string title, Tab active, string query, string body, IReadOnlyList<string> currencies, string? currency, string source)
+    /// <param name="currency">The second currency in use, carried to the other views. The date is not carried:
+    /// each book has its own latest day (yields are published on their own schedule), so a tab opens its own.</param>
+    public static string Page(string title, Tab active, DateOnly? date, string body, IReadOnlyList<string> currencies, string? currency, string source)
     {
+        var carried = currency is null ? "" : "?ccy=" + Html.E(currency);
         string TabLink(Tab tab, string href, string label) =>
-            $"<a href=\"{href}{query}\"{(tab == active ? " aria-current=\"page\"" : "")}>{label}</a>";
+            $"<a href=\"{href}{carried}\"{(tab == active ? " aria-current=\"page\"" : "")}>{label}</a>";
 
         var picker = "";
         if (currencies.Count > 0)
@@ -23,7 +26,7 @@ internal static class Layout
             var path = active switch { Tab.Bonds => "/bonds", Tab.Breaks => "/breaks", _ => "/" };
             var options = string.Concat(currencies.Select(c =>
                 $"<option value=\"{(c == "CAD" ? "" : c)}\"{((currency ?? "CAD") == c ? " selected" : "")}>{c}</option>"));
-            var dateField = query.Contains("date=") ? $"<input type=\"hidden\" name=\"date\" value=\"{Html.E(DateFrom(query))}\">" : "";
+            var dateField = date is null ? "" : $"<input type=\"hidden\" name=\"date\" value=\"{Deskbook.Core.Reporting.Output.Date(date.Value)}\">";
             picker = $"<form class=\"picker\" method=\"get\" action=\"{path}\">{dateField}" +
                      $"<label for=\"ccy\">Show in</label><select id=\"ccy\" name=\"ccy\">{options}</select>" +
                      "<button type=\"submit\">Show</button></form>";
@@ -58,13 +61,6 @@ internal static class Layout
             </body>
             </html>
             """;
-    }
-
-    private static string DateFrom(string query)
-    {
-        var start = query.IndexOf("date=", StringComparison.Ordinal) + 5;
-        var end = query.IndexOf('&', start);
-        return end < 0 ? query[start..] : query[start..end];
     }
 
     private const string Css = """

@@ -164,4 +164,26 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
         Assert.Contains("<option value=\"USD\" selected>", html);
         Assert.Equal(HttpStatusCode.BadRequest, (await _http.GetAsync("/?ccy=dollars")).StatusCode);
     }
+
+    [Fact]
+    public async Task Every_tab_link_on_the_FX_page_opens_a_page()
+    {
+        // The FX book's latest day (2026-11-23) has no yields yet: a tab must not carry that date to the bond book.
+        var html = await _http.GetStringAsync("/?ccy=USD");
+        foreach (var href in new[] { "/?ccy=USD", "/bonds?ccy=USD", "/breaks?ccy=USD" })
+        {
+            Assert.Contains($"href=\"{href}\"", html);
+            Assert.Equal(HttpStatusCode.OK, (await _http.GetAsync(href)).StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task A_currency_without_a_rate_is_a_note_beside_the_book_not_a_refusal()
+    {
+        var response = await _http.GetAsync("/?date=2026-11-23&ccy=RUB");
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Not shown in RUB", html);
+        Assert.Contains("+4,117.60", html);
+    }
 }

@@ -13,10 +13,6 @@ internal sealed record Nav(string Path, string? Currency)
 {
     public string To(DateOnly date) =>
         $"{Path}?date={Output.Date(date)}{(Currency is null ? "" : "&amp;ccy=" + Currency)}";
-
-    public string Query(DateOnly? date) =>
-        date is null && Currency is null ? ""
-        : "?" + string.Join("&amp;", new[] { date is null ? null : "date=" + Output.Date(date.Value), Currency is null ? null : "ccy=" + Currency }.Where(p => p is not null));
 }
 
 /// <summary>The body of each view. Every value that comes from data goes through <see cref="Html.E"/>.</summary>

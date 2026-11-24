@@ -165,7 +165,8 @@ public class CurrencyCommandLineTests : IClassFixture<TestDatabase>
         Assert.Equal("USD", usd.GetProperty("currency").GetString());
         Assert.Equal(29_805.69m, usd.GetProperty("value").GetDecimal());
         Assert.Equal(-82.75m, usd.GetProperty("pnl").GetProperty("translation").GetDecimal());
-        Assert.Equal(42_827.80m, json.RootElement.GetProperty("book").GetProperty("value_cad").GetDecimal());
+        // The CAD book keeps its shape: the same top-level fields as without --currency.
+        Assert.Equal(42_827.80m, json.RootElement.GetProperty("value_cad").GetDecimal());
 
         Assert.Equal(App.Usage, (await Run("book", "--currency", "CAD")).Code);
         Assert.Equal(App.Usage, (await Run("book", "--currency", "usd")).Code);

@@ -145,7 +145,7 @@ public static class App
                     new[] { ("new_trades", book.NewTradesPnlCad), ("revaluation", book.RevaluationPnlCad) });
                 return translation is null
                     ? Write(stdout, cli.Json, BookReport.ToJson(book), BookReport.ToText(book))
-                    : Write(stdout, cli.Json, new { book = BookReport.ToJson(book), in_currency = TranslationReport.ToJson(translation) },
+                    : Write(stdout, cli.Json, WithTranslation(BookReport.ToJson(book), translation),
                         BookReport.ToText(book) + Environment.NewLine + TranslationReport.ToText(translation));
             }
 
@@ -196,7 +196,7 @@ public static class App
                     new[] { ("held", bondBook.HeldPnlCad), ("new_trades", bondBook.NewTradesPnlCad) });
                 return bondTranslation is null
                     ? Write(stdout, cli.Json, BondReport.ToJson(bondBook), BondReport.ToText(bondBook))
-                    : Write(stdout, cli.Json, new { book = BondReport.ToJson(bondBook), in_currency = TranslationReport.ToJson(bondTranslation) },
+                    : Write(stdout, cli.Json, WithTranslation(BondReport.ToJson(bondBook), bondTranslation),
                         BondReport.ToText(bondBook) + Environment.NewLine + TranslationReport.ToText(bondTranslation));
             }
 
@@ -426,6 +426,14 @@ public static class App
         var today = await services.Store.LoadRatesAsync(date);
         var previous = previousDate is null ? null : await services.Store.LoadRatesAsync(previousDate.Value);
         return Translation.Translate(currency, today, previous, valueCad, previousValueCad, partsCad);
+    }
+
+    /// <summary>The book's JSON with an "in_currency" block added beside its fields, so its shape never changes.</summary>
+    private static System.Text.Json.Nodes.JsonObject WithTranslation(object bookJson, Translation translation)
+    {
+        var node = System.Text.Json.JsonSerializer.SerializeToNode(bookJson, Output.JsonOptions)!.AsObject();
+        node["in_currency"] = System.Text.Json.JsonSerializer.SerializeToNode(TranslationReport.ToJson(translation), Output.JsonOptions);
+        return node;
     }
 
     private static async Task<int> ReconBreaksAsync(CliArgs cli, TextWriter stdout, Services services)
