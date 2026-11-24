@@ -69,7 +69,7 @@ Aucune personne n'a relu le code ligne par ligne. Ce qui le valide :
   ignorés, si la base est injoignable. Seule la Banque du Canada est remplacée, par une réponse Valet réelle
   enregistrée : aucun test n'utilise le réseau.
 - **Des tests qui peuvent échouer :** `scripts/check-tests-can-fail.sh` fausse une règle à la fois (signe de la
-  réévaluation, opération nouvelle, trou dans les taux, taux manquant, révision ignorée) et exige que les tests
+  réévaluation, opération nouvelle, trou dans les taux, taux manquant, révision ignorée, cache périmé) et exige que les tests
   échouent à chaque fois.
 
 ## Données
@@ -120,7 +120,7 @@ No person reviewed the code line by line. What validates it:
   idempotent import, and the command line end to end. They fail, never skip, when the database is unreachable.
   Only the Bank of Canada is replaced, by a saved real Valet answer: no test uses the network.
 - **Tests that can fail:** `scripts/check-tests-can-fail.sh` breaks one rule at a time (revaluation sign, new-trade
-  rule, hole in the rates, missing rate, ignored revision) and requires the tests to fail each time.
+  rule, hole in the rates, missing rate, ignored revision, stale cache) and requires the tests to fail each time.
 
 ### Data
 
