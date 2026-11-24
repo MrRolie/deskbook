@@ -23,6 +23,9 @@ public sealed class RateCalendar
         _fetched = fetchedRanges.ToList();
     }
 
+    /// <summary>Every day with published rates, oldest first.</summary>
+    public IReadOnlyCollection<DateOnly> PublishedDates => _published;
+
     public DateOnly? LatestPublished => _published.Count == 0 ? null : _published.Max;
 
     public bool IsFetched(DateOnly date) => _fetched.Any(range => range.Contains(date));

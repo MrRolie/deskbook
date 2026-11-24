@@ -3,7 +3,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Deskbook.Cli;
+namespace Deskbook.Core.Reporting;
 
 /// <summary>Writes results: JSON for agents and scripts (--json), plain text for a person.</summary>
 public static class Output

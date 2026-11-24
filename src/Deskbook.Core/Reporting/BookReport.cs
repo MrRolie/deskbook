@@ -1,9 +1,8 @@
 using System.Text;
-using Deskbook.Core;
 
-namespace Deskbook.Cli;
+namespace Deskbook.Core.Reporting;
 
-/// <summary>The book as the command line shows it: a JSON document or a text table.</summary>
+/// <summary>The book as the command line and the page show it: a JSON document or a text table.</summary>
 public static class BookReport
 {
     public sealed record PositionJson(

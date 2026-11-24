@@ -1,3 +1,4 @@
+using Deskbook.Core.Reporting;
 using Deskbook.Cli;
 using Deskbook.Core;
 using Deskbook.Infrastructure.Valet;

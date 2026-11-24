@@ -1,3 +1,4 @@
+using Deskbook.Core.Reporting;
 using System.Globalization;
 using Deskbook.Core;
 using Deskbook.Infrastructure.Postgres;
