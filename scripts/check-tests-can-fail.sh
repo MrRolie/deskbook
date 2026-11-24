@@ -15,6 +15,8 @@ breaks=(
   "src/Deskbook.Core/RateCalendar.cs@if (!IsFetched(day)) unfetched.Add(day);@if (IsFetched(day) && !IsFetched(day)) unfetched.Add(day);@a hole in the fetched days is ignored"
   "src/Deskbook.Core/BookCalculator.cs@missing.Add(\$\"no {currency} rate published for {date:yyyy-MM-dd}\");@rate = 0m;@a currency with no rate is silently left out of the book"
   "src/Deskbook.Infrastructure/Postgres/PostgresStore.cs@else if (old == rate)@else if (old >= 0)@a revised rate is silently ignored"
+  "src/Deskbook.Core/Reconciliation/Reconciler.cs@Break? AmountField(string name, decimal desk, decimal counterparty) => desk == counterparty@Break? AmountField(string name, decimal desk, decimal counterparty) => desk >= 0 || desk == counterparty@a confirmed amount that differs is not reported"
+  "src/Deskbook.Infrastructure/Postgres/schema.sql@RAISE EXCEPTION '% rows are never changed or deleted (append-only)', TG_TABLE_NAME;@RETURN NEW;@the audit trail can be edited"
   "src/Deskbook.Infrastructure/Valet/ValetClient.cs@if (reachesTo || now - cachedAt < MinimumRefetchInterval)@if (cachedDays.Count >= 0 || reachesTo)@a cached answer from before publication is reused all day"
 )
 

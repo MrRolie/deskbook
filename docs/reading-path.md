@@ -40,9 +40,15 @@ qui porte les règles.
 6. **`IBookSource.cs`** et **`BookService.cs`** : le service lit le calendrier, les deux jours de taux et les
    opérations, puis appelle le calculateur. *Pourquoi une interface :* le domaine définit ce dont il a besoin, et
    PostgreSQL l'implémente (inversion des dépendances). Le domaine ne référence pas Npgsql.
-7. **`TradeCsv.cs`** : lecture du fichier d'opérations, avec en-tête exact. *Pourquoi si strict :* toutes les
-   erreurs sont listées avec leur numéro de ligne et rien n'est importé d'un fichier fautif ; un montant est lu
-   avec `CultureInfo.InvariantCulture`, sinon une machine en français lirait « 1.5 » autrement.
+7. **`StrictCsv.cs`** et **`TradeCsv.cs`** : le seul dialecte CSV lu ici, puis le fichier d'opérations. *Pourquoi
+   si strict :* toutes les erreurs sont listées avec leur numéro de ligne et rien n'est importé d'un fichier
+   fautif ; un montant est lu avec `CultureInfo.InvariantCulture`, sinon une machine en français lirait « 1.5 »
+   autrement. `StrictCsv.Read<T>` est générique : chaque fichier ne fournit que sa fonction de lecture d'une ligne.
+7a. **`Reconciliation/`** : `Confirmation` (ce que la contrepartie confirme), `Break` (un écart et son genre),
+   `ConfirmationCsv`, et **`Reconciler`**, pur comme le calculateur. Il apparie par l'identifiant d'opération
+   cité, compare chaque champ sans tolérance (une confirmation est un document juridique), compare les montants
+   comme des nombres (1000 = 1000.00), et pour une référence inconnue nomme les opérations non confirmées de même
+   économie. Les écarts sortent toujours dans le même ordre.
 8. **`Attribution.cs`** : la mention de la source et du caractère fictif, en un seul endroit.
 
 ## 2. Le monde extérieur : `src/Deskbook.Infrastructure/`
@@ -56,19 +62,25 @@ qui porte les règles.
     et son guide demande de mettre en cache ce qui change une fois par jour ; mais une réponse obtenue avant la
     publication de 16 h 30 ne doit pas cacher les taux du jour jusqu'au lendemain. `TimeProvider` est injecté pour
     que les tests fixent l'heure et la fassent avancer.
-11. **`Postgres/schema.sql`** : quatre tables. `trade` (jamais modifiée), `rate_fetch` (chaque requête et le
+11. **`Postgres/schema.sql`** : les tables du livre. `trade` (jamais modifiée), `rate_fetch` (chaque requête et le
     dernier jour qu'elle couvre), `rate` (valeur courante), `rate_revision` (valeurs remplacées). `numeric` sans
-    précision fixe garde l'échelle publiée. Chaque instruction est `IF NOT EXISTS` : `db init` se relance.
+    précision fixe garde l'échelle publiée. Chaque instruction est `IF NOT EXISTS` ou `OR REPLACE` : `db init` se relance.
 12. **`Postgres/PostgresStore.cs`** : tout le SQL, écrit à la main avec des paramètres (`$1`, `$2`…), jamais de
     concaténation de valeurs. Les écritures à plusieurs lignes sont dans une transaction : un import en conflit ne
-    laisse rien derrière lui. *Pourquoi pas d'ORM :* quatre tables et des requêtes courtes ; le SQL visible est plus
+    laisse rien derrière lui. *Pourquoi pas d'ORM :* sept tables et des requêtes courtes ; le SQL visible est plus
     simple à expliquer et à vérifier.
+12a. **`Postgres/ReconStore.cs`** et la fin de `schema.sql` : la piste d'audit du rapprochement (exécutions avec
+    l'empreinte SHA-256 du fichier, écarts, notes de résolution). Un déclencheur (`deskbook_append_only`) refuse
+    UPDATE et DELETE sur ces tables et sur `trade` : la règle « on n'efface pas » est tenue par la base, pas
+    seulement par le code.
 
 ## 3. La ligne de commande : `src/Deskbook.Cli/`
 
 13. **`Program.cs`** : une ligne ; tout est dans `App`.
-14. **`App.cs`** : l'aiguillage des commandes et la traduction des exceptions en codes de sortie (0, 1, 2, 3) ;
-    toute exception imprévue devient le code 1, dans le même format d'erreur, jamais une trace de pile.
+14. **`App.cs`** : l'aiguillage des commandes et la traduction des exceptions en codes de sortie (0, 1, 2, 3, 4) ;
+    toute exception imprévue devient le code 1, dans le même format d'erreur, jamais une trace de pile. La classe
+    interne `Services` ouvre un seul pool de connexions par exécution et le ferme à la fin : un appelant qui lance
+    beaucoup de commandes dans un même processus (les tests) ne laisse fuir aucune connexion.
     *Pourquoi `RunAsync(args, stdout, stderr, env)` :* les tests d'intégration appellent exactement ce que la
     console appelle, avec leur propre base, leur propre horloge et une fausse Banque.
 15. **`CliArgs.cs`** : un petit analyseur ; une option inconnue est une erreur, pour qu'une faute de frappe ne
@@ -145,9 +157,15 @@ No database, no network, no clock: the easiest part to test, so the part that ca
 6. **`IBookSource.cs`** and **`BookService.cs`**: the service reads the calendar, two days of rates and the
    trades, then calls the calculator. *Why an interface:* the domain states what it needs and PostgreSQL
    implements it (dependency inversion). The domain does not reference Npgsql.
-7. **`TradeCsv.cs`**: reads the trade file, with an exact header. *Why so strict:* every error is listed with its
-   line number and nothing is imported from a faulty file; amounts are read with `CultureInfo.InvariantCulture`,
-   or a French-locale machine would read "1.5" differently.
+7. **`StrictCsv.cs`** and **`TradeCsv.cs`**: the one CSV dialect read here, then the trade file. *Why so strict:*
+   every error is listed with its line number and nothing is imported from a faulty file; amounts are read with
+   `CultureInfo.InvariantCulture`, or a French-locale machine would read "1.5" differently. `StrictCsv.Read<T>` is
+   generic: each file supplies only its one-line reader.
+7a. **`Reconciliation/`**: `Confirmation` (what the counterparty confirms), `Break` (a break and its kind),
+   `ConfirmationCsv`, and **`Reconciler`**, pure like the calculator. It pairs by the quoted trade id, compares
+   every field with no tolerance (a confirmation is a legal record), compares amounts as numbers (1000 = 1000.00),
+   and for an unknown reference names the unconfirmed trades with the same economics. Breaks always come out in
+   the same order.
 8. **`Attribution.cs`**: the source attribution and the fictional notice, in one place.
 
 ### 2. The outside world: `src/Deskbook.Infrastructure/`
@@ -159,18 +177,23 @@ No database, no network, no clock: the easiest part to test, so the part that ca
     terms forbid circumventing its limits and its guide asks that once-a-day data be cached; but an answer fetched
     before the 16:30 publication must not hide the day's rates until the next day. `TimeProvider` is injected so
     tests can fix the time and move it forward.
-11. **`Postgres/schema.sql`**: four tables. `trade` (never updated), `rate_fetch` (each request and the last day it
+11. **`Postgres/schema.sql`**: the book's tables. `trade` (never updated), `rate_fetch` (each request and the last day it
     covers), `rate` (current value), `rate_revision` (replaced values). `numeric` without a fixed scale keeps the
-    published precision. Every statement is `IF NOT EXISTS`: `db init` can be rerun.
+    published precision. Every statement is `IF NOT EXISTS` or `OR REPLACE`: `db init` can be rerun.
 12. **`Postgres/PostgresStore.cs`**: all the SQL, hand-written with parameters (`$1`, `$2`…), never values
     concatenated in. Multi-row writes run in one transaction: a conflicting import leaves nothing behind. *Why no
-    ORM:* four tables and short queries; visible SQL is simpler to explain and to check.
+    ORM:* seven tables and short queries; visible SQL is simpler to explain and to check.
+12a. **`Postgres/ReconStore.cs`** and the end of `schema.sql`: the reconciliation audit trail (runs with the file's
+    SHA-256, breaks, resolution notes). A trigger (`deskbook_append_only`) refuses UPDATE and DELETE on those
+    tables and on `trade`: the "nothing is erased" rule is held by the database, not only by the code.
 
 ### 3. The command line: `src/Deskbook.Cli/`
 
 13. **`Program.cs`**: one line; everything is in `App`.
-14. **`App.cs`**: dispatches commands and turns exceptions into exit codes (0, 1, 2, 3); any unexpected exception
-    becomes code 1, in the same error shape, never a stack trace. *Why
+14. **`App.cs`**: dispatches commands and turns exceptions into exit codes (0, 1, 2, 3, 4); any unexpected exception
+    becomes code 1, in the same error shape, never a stack trace. The inner `Services` class opens one connection
+    pool per run and closes it at the end: a caller running many commands in one process (the tests) leaks no
+    connection. *Why
     `RunAsync(args, stdout, stderr, env)`:* the integration tests call exactly what the console calls, with their
     own database, their own clock and a stand-in Bank.
 15. **`CliArgs.cs`**: a small parser; an unknown option is an error, so a typo is never ignored.

@@ -36,7 +36,13 @@ New trades: FICT-0008
   devise sans taux, ni quand les taux stockés laissent un trou. Code de sortie 3 et la raison.
 - **Reproductible :** relancer le livre donne la même sortie, octet pour octet.
 - **Taux révisés :** une valeur modifiée par la Banque est mise à jour et l'ancienne conservée.
-- `--json` sur chaque commande, pour un script ou un agent. Codes de sortie : 0 fait, 1 panne, 2 usage, 3 refus.
+- **Rapprochement :** `deskbook recon run <confirmations.csv>` compare les opérations du pupitre aux confirmations
+  (fictives) des contreparties et liste les écarts : confirmation manquante, opération inconnue, doublon, champ
+  différent avec les deux valeurs. Chaque exécution est gardée avec l'empreinte SHA-256 du fichier lu ; un écart
+  reçoit des notes de résolution. Ces tables, comme celle des opérations, n'acceptent que des ajouts : la base
+  refuse toute modification ou suppression.
+- `--json` sur chaque commande, pour un script ou un agent. Codes de sortie : 0 fait, 1 panne, 2 usage, 3 refus,
+  4 rapprochement terminé avec des écarts.
 - **Une page web** en lecture seule montre le livre d'un jour publié, avec des liens vers les jours voisins, et
   son JSON à `/api/book?date=…` (identique à `deskbook book --json`). Un jour refusé s'affiche comme un refus.
 
@@ -54,6 +60,7 @@ scripts/dev.sh dotnet run --project src/Deskbook.Cli -- db init
 scripts/dev.sh dotnet run --project src/Deskbook.Cli -- rates fetch --from 2026-11-02 --to 2026-11-23
 scripts/dev.sh dotnet run --project src/Deskbook.Cli -- trades import samples/trades-fictional.csv
 scripts/dev.sh dotnet run --project src/Deskbook.Cli -- book --json
+scripts/dev.sh dotnet run --project src/Deskbook.Cli -- recon run samples/confirmations-fictional.csv
 scripts/dev.sh dotnet test
 scripts/dev.sh web <adresse>:<port>      # la page, publiée sur cette adresse seulement
 ```
@@ -73,7 +80,8 @@ Aucune personne n'a relu le code ligne par ligne. Ce qui le valide :
   ignorés, si la base est injoignable. Seule la Banque du Canada est remplacée, par une réponse Valet réelle
   enregistrée : aucun test n'utilise le réseau.
 - **Des tests qui peuvent échouer :** `scripts/check-tests-can-fail.sh` fausse une règle à la fois (signe de la
-  réévaluation, opération nouvelle, trou dans les taux, taux manquant, révision ignorée, cache périmé) et exige que les tests
+  réévaluation, opération nouvelle, trou dans les taux, taux manquant, révision ignorée, cache périmé, écart de
+  montant non signalé, piste d'audit modifiable) et exige que les tests
   échouent à chaque fois.
 
 ## Données
@@ -102,7 +110,12 @@ The session above shows it: fetch rates, import trades, print the book.
   with no rate, or when the stored rates leave a hole. Exit code 3 and the reason.
 - **Reproducible:** rerunning the book gives the same output, byte for byte.
 - **Revised rates:** a value the Bank changes is updated and the old one kept.
-- `--json` on every command, for a script or an agent. Exit codes: 0 done, 1 failure, 2 usage, 3 refused.
+- **Reconciliation:** `deskbook recon run <confirmations.csv>` compares the desk's trades with (fictional)
+  counterparty confirmations and lists the breaks: missing confirmation, unknown trade, duplicate, a differing
+  field with both values. Every run is kept with the SHA-256 of the file it read; a break collects resolution
+  notes. These tables, like the trades table, accept only inserts: the database refuses any update or delete.
+- `--json` on every command, for a script or an agent. Exit codes: 0 done, 1 failure, 2 usage, 3 refused,
+  4 reconciliation finished with breaks.
 - **A read-only web page** shows the book for a published day, with links to the neighbouring days, and its JSON
   at `/api/book?date=…` (identical to `deskbook book --json`). A refused day is shown as a refusal.
 
@@ -126,7 +139,8 @@ No person reviewed the code line by line. What validates it:
   idempotent import, the cache's timing, the command line end to end, and the web page served on a real port. They fail, never skip, when the database is unreachable.
   Only the Bank of Canada is replaced, by a saved real Valet answer: no test uses the network.
 - **Tests that can fail:** `scripts/check-tests-can-fail.sh` breaks one rule at a time (revaluation sign, new-trade
-  rule, hole in the rates, missing rate, ignored revision, stale cache) and requires the tests to fail each time.
+  rule, hole in the rates, missing rate, ignored revision, stale cache, unreported amount break, editable audit
+  trail) and requires the tests to fail each time.
 
 ### Data
 

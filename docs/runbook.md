@@ -29,6 +29,9 @@ deskbook book --json > book-<date>.json
   dernier jour demandé ou date de moins de 15 minutes. Sinon la plage est redemandée : une requête faite avant la
   publication ne cache pas les taux publiés ensuite.
 - La sortie JSON est stable : la comparer à celle de la veille est un contrôle valable.
+- Rapprochement : `deskbook recon run <relevé des contreparties>.csv`. Code 4 = des écarts ; chacun a un numéro.
+  Après enquête : `deskbook recon resolve --break <n> --by <nom> --note "<ce qui a été trouvé>"`.
+  `deskbook recon breaks` montre la dernière exécution et ce qui reste ouvert.
 
 ## Quand une exécution échoue
 
@@ -42,6 +45,7 @@ deskbook book --json > book-<date>.json
 | 1 | `trade '<id>' is already stored with different fields` | Le fichier modifie une opération existante. Rien n'a été importé. Corriger le fichier : une opération ne se réécrit pas. |
 | 1 | `line N: ...` à l'import | Chaque ligne fautive est listée ; rien n'a été importé. |
 | 2 | erreur d'usage | Voir `deskbook help`. |
+| 4 | `Reconciliation #n: ... break(s)` | Pas une panne : des écarts à examiner, un par un, puis à résoudre avec une note. Une opération ne se corrige pas en place : une correction est une nouvelle opération (et l'écart est résolu avec une note qui la cite). |
 
 Une révision de taux (`n revised` à la récupération) n'est pas une erreur : l'ancienne valeur est conservée
 (`deskbook rates revisions`) et les livres relancés utilisent la nouvelle.
@@ -88,6 +92,9 @@ deskbook book --json > book-<date>.json
   last day asked for or is less than 15 minutes old. Otherwise the range is asked again: a fetch made before
   publication does not hide the rates published after it.
 - The JSON output is stable: comparing it with the previous day's is a valid check.
+- Reconciliation: `deskbook recon run <counterparty statement>.csv`. Code 4 = breaks; each has a number. After
+  looking into one: `deskbook recon resolve --break <n> --by <name> --note "<what was found>"`.
+  `deskbook recon breaks` shows the latest run and what is still open.
 
 ### When a run fails
 
@@ -101,6 +108,7 @@ deskbook book --json > book-<date>.json
 | 1 | `trade '<id>' is already stored with different fields` | The file changes an existing trade. Nothing was imported. Fix the file: a trade is not rewritten. |
 | 1 | `line N: ...` on import | Every bad line is listed; nothing was imported. |
 | 2 | usage error | See `deskbook help`. |
+| 4 | `Reconciliation #n: ... break(s)` | Not a failure: breaks to look into, one by one, then resolve with a note. A trade is not corrected in place: a correction is a new trade (and the break is resolved with a note citing it). |
 
 A rate revision (`n revised` on a fetch) is not an error: the old value is kept (`deskbook rates revisions`) and
 rerun books use the new one.
