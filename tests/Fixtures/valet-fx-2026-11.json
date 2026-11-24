@@ -1,0 +1,357 @@
+{
+ "terms": {
+  "url": "https://www.bankofcanada.ca/terms/"
+ },
+ "seriesDetail": {
+  "FXUSDCAD": {
+   "label": "USD/CAD",
+   "description": "Daily average exchange rate of the US dollar in Canadian dollars.",
+   "dimension": {
+    "key": "d",
+    "name": "Date"
+   },
+   "dateFormat": "daily",
+   "metadata": {
+    "unit": "Canadian dollars per US dollar",
+    "frequency": "Business daily"
+   }
+  },
+  "FXEURCAD": {
+   "label": "EUR/CAD",
+   "description": "Daily average exchange rate of the euro in Canadian dollars.",
+   "dimension": {
+    "key": "d",
+    "name": "Date"
+   },
+   "dateFormat": "daily",
+   "metadata": {
+    "unit": "Canadian dollars per euro",
+    "frequency": "Business daily"
+   }
+  },
+  "FXGBPCAD": {
+   "label": "GBP/CAD",
+   "description": "Daily average exchange rate of the UK pound sterling in Canadian dollars.",
+   "dimension": {
+    "key": "d",
+    "name": "Date"
+   },
+   "dateFormat": "daily",
+   "metadata": {
+    "unit": "Canadian dollars per UK pound sterling",
+    "frequency": "Business daily"
+   }
+  },
+  "FXJPYCAD": {
+   "label": "JPY/CAD",
+   "description": "Daily average exchange rate of the Japanese yen in Canadian dollars.",
+   "dimension": {
+    "key": "d",
+    "name": "Date"
+   },
+   "dateFormat": "daily",
+   "metadata": {
+    "unit": "Canadian dollars per Japanese yen",
+    "frequency": "Business daily"
+   }
+  },
+  "FXCHFCAD": {
+   "label": "CHF/CAD",
+   "description": "Daily average exchange rate of the Swiss franc in Canadian dollars.",
+   "dimension": {
+    "key": "d",
+    "name": "Date"
+   },
+   "dateFormat": "daily",
+   "metadata": {
+    "unit": "Canadian dollars per Swiss franc",
+    "frequency": "Business daily"
+   }
+  },
+  "FXRUBCAD": {
+   "label": "RUB/CAD",
+   "description": "Daily average exchange rate — historical series of the Russian ruble in Canadian dollars.",
+   "dimension": {
+    "key": "d",
+    "name": "Date"
+   },
+   "dateFormat": "daily",
+   "metadata": {
+    "unit": "Canadian dollars per Russian ruble",
+    "frequency": "Business daily"
+   }
+  }
+ },
+ "observations": [
+  {
+   "d": "2026-11-02",
+   "FXUSDCAD": {
+    "v": "1.3978"
+   },
+   "FXEURCAD": {
+    "v": "1.5660"
+   },
+   "FXGBPCAD": {
+    "v": "1.8752"
+   },
+   "FXJPYCAD": {
+    "v": "0.008860"
+   },
+   "FXCHFCAD": {
+    "v": "1.7068"
+   }
+  },
+  {
+   "d": "2026-11-03",
+   "FXUSDCAD": {
+    "v": "1.3994"
+   },
+   "FXEURCAD": {
+    "v": "1.5661"
+   },
+   "FXGBPCAD": {
+    "v": "1.8779"
+   },
+   "FXJPYCAD": {
+    "v": "0.008830"
+   },
+   "FXCHFCAD": {
+    "v": "1.7056"
+   }
+  },
+  {
+   "d": "2026-11-04",
+   "FXUSDCAD": {
+    "v": "1.3961"
+   },
+   "FXEURCAD": {
+    "v": "1.5688"
+   },
+   "FXGBPCAD": {
+    "v": "1.8811"
+   },
+   "FXJPYCAD": {
+    "v": "0.008810"
+   },
+   "FXCHFCAD": {
+    "v": "1.7092"
+   }
+  },
+  {
+   "d": "2026-11-05",
+   "FXUSDCAD": {
+    "v": "1.3989"
+   },
+   "FXEURCAD": {
+    "v": "1.5703"
+   },
+   "FXGBPCAD": {
+    "v": "1.8841"
+   },
+   "FXJPYCAD": {
+    "v": "0.008860"
+   },
+   "FXCHFCAD": {
+    "v": "1.7146"
+   }
+  },
+  {
+   "d": "2026-11-06",
+   "FXUSDCAD": {
+    "v": "1.4113"
+   },
+   "FXEURCAD": {
+    "v": "1.5732"
+   },
+   "FXGBPCAD": {
+    "v": "1.8857"
+   },
+   "FXJPYCAD": {
+    "v": "0.008910"
+   },
+   "FXCHFCAD": {
+    "v": "1.7207"
+   }
+  },
+  {
+   "d": "2026-11-09",
+   "FXUSDCAD": {
+    "v": "1.4123"
+   },
+   "FXEURCAD": {
+    "v": "1.5823"
+   },
+   "FXGBPCAD": {
+    "v": "1.8954"
+   },
+   "FXJPYCAD": {
+    "v": "0.008940"
+   },
+   "FXCHFCAD": {
+    "v": "1.7213"
+   }
+  },
+  {
+   "d": "2026-11-10",
+   "FXUSDCAD": {
+    "v": "1.4181"
+   },
+   "FXEURCAD": {
+    "v": "1.5839"
+   },
+   "FXGBPCAD": {
+    "v": "1.8939"
+   },
+   "FXJPYCAD": {
+    "v": "0.008940"
+   },
+   "FXCHFCAD": {
+    "v": "1.7192"
+   }
+  },
+  {
+   "d": "2026-11-12",
+   "FXUSDCAD": {
+    "v": "1.4255"
+   },
+   "FXEURCAD": {
+    "v": "1.5771"
+   },
+   "FXGBPCAD": {
+    "v": "1.8874"
+   },
+   "FXJPYCAD": {
+    "v": "0.008920"
+   },
+   "FXCHFCAD": {
+    "v": "1.7079"
+   }
+  },
+  {
+   "d": "2026-11-13",
+   "FXUSDCAD": {
+    "v": "1.4257"
+   },
+   "FXEURCAD": {
+    "v": "1.5734"
+   },
+   "FXGBPCAD": {
+    "v": "1.8848"
+   },
+   "FXJPYCAD": {
+    "v": "0.008920"
+   },
+   "FXCHFCAD": {
+    "v": "1.7000"
+   }
+  },
+  {
+   "d": "2026-11-16",
+   "FXUSDCAD": {
+    "v": "1.4298"
+   },
+   "FXEURCAD": {
+    "v": "1.5736"
+   },
+   "FXGBPCAD": {
+    "v": "1.8860"
+   },
+   "FXJPYCAD": {
+    "v": "0.008960"
+   },
+   "FXCHFCAD": {
+    "v": "1.7031"
+   }
+  },
+  {
+   "d": "2026-11-17",
+   "FXUSDCAD": {
+    "v": "1.4291"
+   },
+   "FXEURCAD": {
+    "v": "1.5726"
+   },
+   "FXGBPCAD": {
+    "v": "1.8876"
+   },
+   "FXJPYCAD": {
+    "v": "0.008970"
+   },
+   "FXCHFCAD": {
+    "v": "1.7019"
+   }
+  },
+  {
+   "d": "2026-11-18",
+   "FXUSDCAD": {
+    "v": "1.4326"
+   },
+   "FXEURCAD": {
+    "v": "1.5717"
+   },
+   "FXGBPCAD": {
+    "v": "1.8844"
+   },
+   "FXJPYCAD": {
+    "v": "0.008990"
+   },
+   "FXCHFCAD": {
+    "v": "1.6993"
+   }
+  },
+  {
+   "d": "2026-11-19",
+   "FXUSDCAD": {
+    "v": "1.4317"
+   },
+   "FXEURCAD": {
+    "v": "1.5726"
+   },
+   "FXGBPCAD": {
+    "v": "1.8783"
+   },
+   "FXJPYCAD": {
+    "v": "0.008960"
+   },
+   "FXCHFCAD": {
+    "v": "1.6978"
+   }
+  },
+  {
+   "d": "2026-11-20",
+   "FXUSDCAD": {
+    "v": "1.4325"
+   },
+   "FXEURCAD": {
+    "v": "1.5727"
+   },
+   "FXGBPCAD": {
+    "v": "1.8769"
+   },
+   "FXJPYCAD": {
+    "v": "0.009030"
+   },
+   "FXCHFCAD": {
+    "v": "1.7067"
+   }
+  },
+  {
+   "d": "2026-11-23",
+   "FXUSDCAD": {
+    "v": "1.4369"
+   },
+   "FXEURCAD": {
+    "v": "1.5672"
+   },
+   "FXGBPCAD": {
+    "v": "1.8734"
+   },
+   "FXJPYCAD": {
+    "v": "0.009030"
+   },
+   "FXCHFCAD": {
+    "v": "1.7063"
+   }
+  }
+ ]
+}
