@@ -133,3 +133,41 @@ public class CommandLineTests : IClassFixture<TestDatabase>
         Assert.Equal(280m, json.RootElement.GetProperty("pnl").GetProperty("new_trades_cad").GetDecimal());
     }
 }
+
+public class CurrencyCommandLineTests : IClassFixture<TestDatabase>
+{
+    private readonly TestDatabase _db;
+
+    public CurrencyCommandLineTests(TestDatabase db)
+    {
+        _db = db;
+    }
+
+    [Fact]
+    public async Task The_book_can_be_shown_in_a_second_currency_and_CAD_is_refused_as_one()
+    {
+        var env = new AppEnvironment(_db.ConnectionString, Path.Combine(Path.GetTempPath(), "deskbook-tests", Guid.NewGuid().ToString("N")),
+            new HttpClient(ValetByGroup.Saved()), new FixedClock(new DateTimeOffset(2026, 11, 24, 4, 0, 0, TimeSpan.Zero)));
+        async Task<(int Code, string Out)> Run(params string[] args)
+        {
+            var stdout = new StringWriter();
+            return (await App.RunAsync(args, stdout, TextWriter.Null, env), stdout.ToString());
+        }
+
+        Assert.Equal(App.Ok, (await Run("db", "init")).Code);
+        Assert.Equal(App.Ok, (await Run("rates", "fetch", "--from", "2026-11-02", "--to", "2026-11-23")).Code);
+        Assert.Equal(App.Ok, (await Run("trades", "import", Files.Sample("trades-fictional.csv"))).Code);
+
+        var (code, output) = await Run("book", "--date", "2026-11-23", "--currency", "USD", "--json");
+        Assert.Equal(App.Ok, code);
+        using var json = System.Text.Json.JsonDocument.Parse(output);
+        var usd = json.RootElement.GetProperty("in_currency");
+        Assert.Equal("USD", usd.GetProperty("currency").GetString());
+        Assert.Equal(29_805.69m, usd.GetProperty("value").GetDecimal());
+        Assert.Equal(-82.75m, usd.GetProperty("pnl").GetProperty("translation").GetDecimal());
+        Assert.Equal(42_827.80m, json.RootElement.GetProperty("book").GetProperty("value_cad").GetDecimal());
+
+        Assert.Equal(App.Usage, (await Run("book", "--currency", "CAD")).Code);
+        Assert.Equal(App.Usage, (await Run("book", "--currency", "usd")).Code);
+    }
+}

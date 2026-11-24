@@ -42,7 +42,7 @@ public static class App
           deskbook trades import <file.csv>
           deskbook trades add --id ID --date yyyy-MM-dd --counterparty NAME --buy CCY:AMOUNT --sell CCY:AMOUNT
           deskbook trades list
-          deskbook book [--date yyyy-MM-dd]
+          deskbook book [--date yyyy-MM-dd] [--currency CCY]
           deskbook recon run <confirmations.csv>
           deskbook recon runs
           deskbook recon breaks [--run ID]
@@ -50,7 +50,7 @@ public static class App
           deskbook yields fetch --from yyyy-MM-dd [--to yyyy-MM-dd]
           deskbook bonds import <bonds.csv>
           deskbook bonds trades import <bond-trades.csv>
-          deskbook bonds book [--date yyyy-MM-dd]
+          deskbook bonds book [--date yyyy-MM-dd] [--currency CCY]
           deskbook nightly --out DIR [--from yyyy-MM-dd] [--confirmations FILE]
 
         Add --json to any command for JSON output. The database comes from DESKBOOK_DB (a connection string).
@@ -137,10 +137,17 @@ public static class App
                     trades.Count == 0 ? "No trades." : string.Join(Environment.NewLine, trades.Select(TradeText)));
 
             case "book":
-                cli.AllowOnly("date");
+            {
+                cli.AllowOnly("date", "currency");
                 var dateText = cli.Option("date");
                 var book = await new BookService(services.Store).BuildAsync(dateText is null ? null : ParseDate(dateText));
-                return Write(stdout, cli.Json, BookReport.ToJson(book), BookReport.ToText(book));
+                var translation = await TranslateAsync(cli, services, book.Date, book.PreviousDate, book.ValueCad, book.PreviousValueCad,
+                    new[] { ("new_trades", book.NewTradesPnlCad), ("revaluation", book.RevaluationPnlCad) });
+                return translation is null
+                    ? Write(stdout, cli.Json, BookReport.ToJson(book), BookReport.ToText(book))
+                    : Write(stdout, cli.Json, new { book = BookReport.ToJson(book), in_currency = TranslationReport.ToJson(translation) },
+                        BookReport.ToText(book) + Environment.NewLine + TranslationReport.ToText(translation));
+            }
 
             case "yields fetch":
             {
@@ -182,10 +189,15 @@ public static class App
 
             case "bonds book":
             {
-                cli.AllowOnly("date");
+                cli.AllowOnly("date", "currency");
                 var bondDateText = cli.Option("date");
                 var bondBook = await new BondBookService(services.Bonds).BuildAsync(bondDateText is null ? null : ParseDate(bondDateText));
-                return Write(stdout, cli.Json, BondReport.ToJson(bondBook), BondReport.ToText(bondBook));
+                var bondTranslation = await TranslateAsync(cli, services, bondBook.Date, bondBook.PreviousDate, bondBook.ValueCad, bondBook.PreviousValueCad,
+                    new[] { ("held", bondBook.HeldPnlCad), ("new_trades", bondBook.NewTradesPnlCad) });
+                return bondTranslation is null
+                    ? Write(stdout, cli.Json, BondReport.ToJson(bondBook), BondReport.ToText(bondBook))
+                    : Write(stdout, cli.Json, new { book = BondReport.ToJson(bondBook), in_currency = TranslationReport.ToJson(bondTranslation) },
+                        BondReport.ToText(bondBook) + Environment.NewLine + TranslationReport.ToText(bondTranslation));
             }
 
             case "nightly":
@@ -396,6 +408,24 @@ public static class App
         await File.WriteAllTextAsync(Path.Combine(outDirectory, "last-run.json"), summary + Environment.NewLine);
         stdout.WriteLine(summary);
         return code;
+    }
+
+    /// <summary>
+    /// With --currency, the book's CAD figures in that currency, at the stored exchange rates of the book's day and of
+    /// its previous day. Without it, null: the book stays in CAD only.
+    /// </summary>
+    private static async Task<Translation?> TranslateAsync(CliArgs cli, Services services, DateOnly date, DateOnly? previousDate,
+        decimal valueCad, decimal previousValueCad, IReadOnlyList<(string, decimal)> partsCad)
+    {
+        if (cli.Option("currency") is not { } code) return null;
+        Currency currency;
+        try { currency = new Currency(code); }
+        catch (ArgumentException e) { throw new UsageException(e.Message); }
+        if (currency == Currency.Cad) throw new UsageException("the book is already in CAD; give another currency");
+
+        var today = await services.Store.LoadRatesAsync(date);
+        var previous = previousDate is null ? null : await services.Store.LoadRatesAsync(previousDate.Value);
+        return Translation.Translate(currency, today, previous, valueCad, previousValueCad, partsCad);
     }
 
     private static async Task<int> ReconBreaksAsync(CliArgs cli, TextWriter stdout, Services services)

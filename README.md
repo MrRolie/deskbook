@@ -41,6 +41,9 @@ New trades: FICT-0008
   de référence de la Banque du Canada (2 à 10 ans, interpolés), avec coupon couru, prix pied de coupon, DV01 et
   résultat du jour (positions détenues + opérations nouvelles). C'est un prix de modèle, dit comme tel ; une
   échéance hors de la courbe est refusée, jamais extrapolée. `deskbook yields fetch`, `deskbook bonds book`.
+- **Une seconde devise de présentation :** `--currency USD` (ou toute devise publiée) ajoute au livre, en CAD,
+  sa valeur et son résultat dans cette devise, au taux de chaque jour. Le résultat y gagne une part : l'effet de
+  conversion (la valeur de la veille réévaluée à la variation du taux) ; les parts font toujours le total.
 - **Rapprochement :** `deskbook recon run <confirmations.csv>` compare les opérations du pupitre aux confirmations
   (fictives) des contreparties et liste les écarts : confirmation manquante, opération inconnue, doublon, champ
   différent avec les deux valeurs. Chaque exécution est gardée avec l'empreinte SHA-256 du fichier lu ; un écart
@@ -96,7 +99,7 @@ Aucune personne n'a relu le code ligne par ligne. Ce qui le valide :
 - **Des tests qui peuvent échouer :** `scripts/check-tests-can-fail.sh` fausse une règle à la fois (signe de la
   réévaluation, opération nouvelle, trou dans les taux, taux manquant, révision ignorée, cache périmé, écart de
   montant non signalé, piste d'audit modifiable, échec masqué par la tâche du soir, calendrier des taux faussé par les rendements,
-  actualisation décalée d'une période, coupons oubliés) et exige que les tests
+  actualisation décalée d'une période, coupons oubliés, effet de conversion de signe inversé) et exige que les tests
   échouent à chaque fois.
 
 ## Données
@@ -130,6 +133,9 @@ The session above shows it: fetch rates, import trades, print the book.
   years, interpolated), with accrued interest, clean price, DV01 and the day's P&L (held positions + new trades).
   It is a model price, labelled as one; a maturity outside the curve is refused, never extrapolated.
   `deskbook yields fetch`, `deskbook bonds book`.
+- **A second reporting currency:** `--currency USD` (or any published currency) adds to the CAD book its value
+  and P&L in that currency, at each day's rate. The P&L gains one part there: the translation effect (the previous
+  value re-marked at the rate change); the parts always add up to the total.
 - **Reconciliation:** `deskbook recon run <confirmations.csv>` compares the desk's trades with (fictional)
   counterparty confirmations and lists the breaks: missing confirmation, unknown trade, duplicate, a differing
   field with both values. Every run is kept with the SHA-256 of the file it read; a break collects resolution
@@ -166,7 +172,7 @@ No person reviewed the code line by line. What validates it:
 - **Tests that can fail:** `scripts/check-tests-can-fail.sh` breaks one rule at a time (revaluation sign, new-trade
   rule, hole in the rates, missing rate, ignored revision, stale cache, unreported amount break, editable audit
   trail, failure hidden by the evening job, exchange-rate calendar fooled by yields, discounting
-  one period off, coupons forgotten) and requires the tests to fail each time.
+  one period off, coupons forgotten, translation effect with the wrong sign) and requires the tests to fail each time.
 
 ### Data
 

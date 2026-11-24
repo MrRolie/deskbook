@@ -50,6 +50,10 @@ qui porte les règles.
    comme des nombres (1000 = 1000.00), et pour une référence inconnue nomme les opérations non confirmées de même
    économie. Les écarts sortent toujours dans le même ordre.
 8. **`Attribution.cs`** : la mention de la source et du caractère fictif, en un seul endroit.
+8b. **`Translation.cs`** : un livre en CAD montré dans une autre devise. Valeur = valeur CAD / taux du jour ;
+   chaque part du résultat est convertie au taux du jour, et l'effet de conversion = valeur CAD de la veille ×
+   (1 / taux du jour − 1 / taux de la veille). *Pourquoi cette part :* sans elle, les parts converties ne font
+   plus le total dès que le taux bouge ; avec elle, l'égalité est exacte et un test la vérifie.
 8a. **`Bonds/`** : le livre d'obligations. `Bond` (coupon semestriel, périodes comptées à rebours depuis
    l'échéance pour garder les fins de mois), `YieldCurve` (rendements 2 à 10 ans, interpolation linéaire en
    années, refus hors courbe), `BondPricer` (prix = somme des flux actualisés à (1 + y/2)^(k − 1 + w), w = part de
@@ -190,6 +194,10 @@ No database, no network, no clock: the easiest part to test, so the part that ca
    and for an unknown reference names the unconfirmed trades with the same economics. Breaks always come out in
    the same order.
 8. **`Attribution.cs`**: the source attribution and the fictional notice, in one place.
+8b. **`Translation.cs`**: a CAD book shown in another currency. Value = CAD value / today's rate; each P&L part is
+   converted at today's rate, and the translation effect = previous CAD value × (1 / today's rate − 1 / previous
+   rate). *Why that part:* without it the converted parts stop adding up to the total as soon as the rate moves;
+   with it the equality is exact, and a test checks it.
 8a. **`Bonds/`**: the bond book. `Bond` (semi-annual coupon, periods counted back from maturity to keep month
    ends), `YieldCurve` (2 to 10-year yields, linear interpolation in years, refusal outside the curve), `BondPricer`
    (price = sum of cash flows discounted at (1 + y/2)^(k − 1 + w), w = share of the period left; accrued

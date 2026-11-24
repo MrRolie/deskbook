@@ -21,6 +21,7 @@ breaks=(
   "src/Deskbook.Infrastructure/Postgres/PostgresStore.cs@covered_to IS NOT NULL AND series_group = 'FX_RATES_DAILY'@covered_to IS NOT NULL AND series_group <> ''@a yields fetch makes exchange rates look fetched"
   "src/Deskbook.Core/Bonds/BondPricer.cs@Math.Pow(perPeriod, -(k + w))@Math.Pow(perPeriod, -(k + 1 + w))@bond cash flows are discounted one period too far"
   "src/Deskbook.Core/Bonds/BondBook.cs@fullToday - fullBefore + bond.CashFlowsPer100(previous.Date, date))@fullToday - fullBefore)@held bond P&L forgets the coupons received"
+  "src/Deskbook.Core/Translation.cs@previousValueCad * (1m / rate - 1m / previousRate.Value)@previousValueCad * (1m / previousRate.Value - 1m / rate)@the translation effect has the wrong sign"
   "src/Deskbook.Infrastructure/Valet/ValetClient.cs@if (reachesTo || now - cachedAt < MinimumRefetchInterval)@if (cachedDays.Count >= 0 || reachesTo)@a cached answer from before publication is reused all day"
 )
 
