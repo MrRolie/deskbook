@@ -1,0 +1,12 @@
+# FICTIONAL: every trade and counterparty below is invented for the Demo FX Desk. Only the rates used to price
+# them (fetched separately from the Bank of Canada) are real. Amounts are in units of each currency.
+# FICT-0004 is dated 2026-11-11, a day with no published rates: it belongs to the next published day's book.
+id,trade_date,counterparty,bought_currency,bought_amount,sold_currency,sold_amount
+FICT-0001,2026-11-03,Northwind Pension Fund (fictional),USD,1000000,CAD,1399000
+FICT-0002,2026-11-05,Harbour Exporters Inc. (fictional),CAD,784600,EUR,500000
+FICT-0003,2026-11-06,Maple Leaf Asset Mgmt (fictional),GBP,250000,CAD,471000
+FICT-0004,2026-11-11,Northwind Pension Fund (fictional),JPY,100000000,USD,626000
+FICT-0005,2026-11-13,Alpine Treasury AG (fictional),CHF,300000,EUR,324000
+FICT-0006,2026-11-18,Harbour Exporters Inc. (fictional),CAD,716000,USD,500000
+FICT-0007,2026-11-20,Maple Leaf Asset Mgmt (fictional),CAD,469500,GBP,250000
+FICT-0008,2026-11-23,Alpine Treasury AG (fictional),USD,400000,CAD,574500
