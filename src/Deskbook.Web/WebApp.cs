@@ -19,6 +19,29 @@ public static class WebApp
         builder.Services.AddSingleton<PostgresStore>();
         var app = builder.Build();
 
+        // A database that is down or not yet initialised is an answer, not a crash: 503 with what to do.
+        app.Use(async (context, next) =>
+        {
+            try
+            {
+                await next(context);
+            }
+            catch (NpgsqlException e) when (!context.Response.HasStarted)
+            {
+                var message = $"The book's database cannot be read ({e.Message}). If it is new, run 'deskbook db init'; the evening job does it.";
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                if (context.Request.Path.StartsWithSegments("/api"))
+                {
+                    await context.Response.WriteAsJsonAsync(new { error = "unavailable", message }, Output.JsonOptions);
+                }
+                else
+                {
+                    context.Response.ContentType = "text/html; charset=utf-8";
+                    await context.Response.WriteAsync(BookPage.Message("Database unavailable", message));
+                }
+            }
+        });
+
         app.MapGet("/", async (string? date, PostgresStore store) =>
         {
             if (!TryParseDate(date, out var bookDate))
