@@ -108,8 +108,14 @@ Aucune personne n'a relu le code ligne par ligne. Ce qui le valide :
 ## Données
 
 Taux de change : Banque du Canada, API Valet (https://www.bankofcanada.ca/valet). Taux indicatifs. Reproduits sans
-modification de valeur ; sélection de séries et de dates. La Banque du Canada n'appuie pas ce projet. Conditions
-lues et consignées dans [`docs/data-licences.md`](docs/data-licences.md).
+modification de valeur ; sélection de séries et de dates. Rendements obligataires de référence (2, 3, 5, 7, 10 ans) :
+même source ; les prix d'obligations en sont calculés par ce projet et ne sont pas des cotes de marché. La Banque du
+Canada n'appuie pas ce projet. Conditions lues et consignées dans [`docs/data-licences.md`](docs/data-licences.md).
+
+## Licence
+
+Le code est sous licence MIT ([`LICENSE`](LICENSE)). Les réponses Valet enregistrées dans `tests/Fixtures/` restent
+soumises aux conditions de la Banque du Canada, pas à la licence MIT.
 
 ---
 
@@ -183,5 +189,11 @@ No person reviewed the code line by line. What validates it:
 ### Data
 
 Exchange rates: Bank of Canada, Valet API (https://www.bankofcanada.ca/valet). Indicative rates. Values reproduced
-unchanged; series and dates selected. The Bank of Canada does not endorse this project. Terms read and recorded in
-[`docs/data-licences.md`](docs/data-licences.md).
+unchanged; series and dates selected. Benchmark bond yields (2, 3, 5, 7, 10 years): same source; the bond prices
+are computed from them by this project and are not market quotes. The Bank of Canada does not endorse this project.
+Terms read and recorded in [`docs/data-licences.md`](docs/data-licences.md).
+
+### Licence
+
+The code is under the MIT licence ([`LICENSE`](LICENSE)). The Valet responses saved in `tests/Fixtures/` remain under
+the Bank of Canada's terms, not the MIT licence.
