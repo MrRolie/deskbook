@@ -4,15 +4,17 @@
 #   scripts/dev.sh dotnet <args>  run the .NET SDK against this checkout, as the calling user
 #   scripts/dev.sh psql [args]    open psql inside the database container
 #   scripts/dev.sh web ADDR:PORT  serve the book page on that address only (the database stays unpublished)
-# State (database password, NuGet cache) lives in .dev/, which git ignores.
+# State (database password, NuGet cache) lives in .dev/, which git ignores. The Docker network, container and volume
+# are named from DESKBOOK_DEV_PREFIX (default "deskbook"), so a second checkout can run beside the first.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 dev="$root/.dev"
 sdk_image="mcr.microsoft.com/dotnet/sdk@sha256:8c6edfb26c85153f236d26efebd9ad349aec403583f343f201ee67838b23658d"
 pg_image="postgres@sha256:f5cbc081c25690710f3fc6f4c61a7565382bae01ca0d0f2028a53d7926b85a20"
-network="deskbook-net"
-pg_name="deskbook-pg"
+prefix="${DESKBOOK_DEV_PREFIX:-deskbook}"
+network="$prefix-net"
+pg_name="$prefix-pg"
 
 mkdir -p "$dev/home" "$dev/nuget"
 if [ ! -f "$dev/pg.env" ]; then
@@ -26,7 +28,7 @@ case "${1:-}" in
     if ! docker container inspect "$pg_name" >/dev/null 2>&1; then
       docker run -d --name "$pg_name" --network "$network" --env-file "$dev/pg.env" \
         -e POSTGRES_USER=deskbook -e POSTGRES_DB=deskbook \
-        -v deskbook-pgdata:/var/lib/postgresql "$pg_image" >/dev/null
+        -v "$prefix-pgdata:/var/lib/postgresql" "$pg_image" >/dev/null
     else
       docker start "$pg_name" >/dev/null
     fi
