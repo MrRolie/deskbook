@@ -107,12 +107,16 @@ qui porte les règles.
 
 ## 3 bis. La page : `src/Deskbook.Web/`
 
-16a. **`WebApp.cs`** : ASP.NET Core en « minimal API », deux routes en lecture seule : `/` (la page) et
-    `/api/book` (le même JSON que le CLI ; un refus donne HTTP 409, une date illisible 400). `Build(args,
-    connexion)` est séparé de `Program.cs` pour que les tests démarrent la vraie application sur un port libre.
-16b. **`BookPage.cs`** : la page construite en chaîne, sans moteur de gabarit ni script ni fichier externe ; chaque
-    valeur passe par `WebUtility.HtmlEncode`. Un gain et une perte se distinguent par leur signe écrit, pas
-    seulement par la couleur. Un jour refusé affiche ses raisons, jamais un livre vide.
+16a. **`WebApp.cs`** : ASP.NET Core en « minimal API », en lecture seule : `/` (livre de change), `/bonds` (livre
+    d'obligations), `/breaks` (dernier rapprochement), et `/api/book`, `/api/bonds` (le même JSON que le CLI). Un
+    refus donne HTTP 409, une date ou une devise illisible 400, une base illisible 503. `Build(args, connexion)` est
+    séparé de `Program.cs` pour que les tests démarrent la vraie application sur un port libre.
+16b. **`Pages/`** : `Layout` (l'en-tête du pupitre, les trois vues, le choix de devise par un simple formulaire GET,
+    la feuille de style), `Views` (le corps de chaque vue), `Ribbon` (le ruban des résultats quotidiens : une barre
+    par jour publié, chacune un lien vers ce jour) et `Html` (échappement, dates en toutes lettres, montants signés).
+    Pages construites en chaînes, sans moteur de gabarit, sans script ni fichier externe ; chaque valeur passe par
+    `WebUtility.HtmlEncode`. Un gain et une perte se distinguent par leur signe écrit, pas seulement par la couleur.
+    Un jour refusé affiche ses raisons, jamais un livre vide.
 
 ## 4. Les preuves : `tests/`
 
@@ -243,12 +247,15 @@ No database, no network, no clock: the easiest part to test, so the part that ca
 
 ### 3b. The page: `src/Deskbook.Web/`
 
-16a. **`WebApp.cs`**: ASP.NET Core minimal API, two read-only routes: `/` (the page) and `/api/book` (the same JSON
-    as the CLI; a refusal is HTTP 409, an unreadable date 400). `Build(args, connection)` is separate from
-    `Program.cs` so the tests start the real application on a free port.
-16b. **`BookPage.cs`**: the page built as a string, with no template engine, script or external file; every value
-    goes through `WebUtility.HtmlEncode`. A gain and a loss differ by their written sign, not only by colour. A
-    refused day shows its reasons, never an empty book.
+16a. **`WebApp.cs`**: ASP.NET Core minimal API, read-only: `/` (FX book), `/bonds` (bond book), `/breaks` (latest
+    reconciliation), and `/api/book`, `/api/bonds` (the same JSON as the CLI). A refusal is HTTP 409, an unreadable
+    date or currency 400, an unreadable database 503. `Build(args, connection)` is separate from `Program.cs` so
+    the tests start the real application on a free port.
+16b. **`Pages/`**: `Layout` (the desk's masthead, the three views, the currency choice as a plain GET form, the
+    stylesheet), `Views` (each view's body), `Ribbon` (the daily P&L ribbon: one bar per published day, each a link
+    to that day) and `Html` (escaping, dates in words, signed amounts). Pages are built as strings, with no template
+    engine, script or external file; every value goes through `WebUtility.HtmlEncode`. A gain and a loss differ by
+    their written sign, not only by colour. A refused day shows its reasons, never an empty book.
 
 ### 4. The evidence: `tests/`
 

@@ -3,7 +3,7 @@ namespace Deskbook.Core;
 /// <summary>Fixed text the book carries with every output: the source of its rates and that its data is invented.</summary>
 public static class Attribution
 {
-    public const string Desk = "Demo FX Desk (fictional)";
+    public const string Desk = "Demo Rates & FX Desk (fictional)";
 
     public const string Fictional =
         "The desk, its counterparties, bonds, trades and positions are invented. Only the market data is real: " +

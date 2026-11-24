@@ -1,22 +1,32 @@
+using System.Globalization;
 using Deskbook.Core;
+using Deskbook.Core.Bonds;
 using Deskbook.Core.Reporting;
 using Deskbook.Infrastructure.Postgres;
+using Deskbook.Web.Pages;
 using Npgsql;
 
 namespace Deskbook.Web;
 
 /// <summary>
-/// The page and its JSON twin, read-only: it shows what is stored and never fetches rates or changes data.
-///   GET /                  the book page (latest published day, or ?date=yyyy-MM-dd)
-///   GET /api/book?date=…   the same JSON as "deskbook book --json"; a refusal is HTTP 409 with its reasons
+/// The desk's pages and their JSON twins, read-only: they show what is stored and never fetch or change data.
+///   GET /          the FX book (?date=yyyy-MM-dd, ?ccy=USD)      GET /api/book    same JSON as "deskbook book --json"
+///   GET /bonds     the bond book (same parameters)               GET /api/bonds   same JSON as "deskbook bonds book --json"
+///   GET /breaks    the latest reconciliation's breaks
+/// A refused book is HTTP 409 with its reasons; an unreadable date or currency 400; an unreadable database 503.
 /// </summary>
 public static class WebApp
 {
+    /// <summary>How many published days the P&amp;L ribbon shows, ending at the book's day.</summary>
+    private const int RibbonDays = 20;
+
     public static WebApplication Build(string[] args, string connectionString)
     {
         var builder = WebApplication.CreateBuilder(args);
         builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
         builder.Services.AddSingleton<PostgresStore>();
+        builder.Services.AddSingleton<BondStore>();
+        builder.Services.AddSingleton<ReconStore>();
         var app = builder.Build();
 
         // A database that is down or not yet initialised is an answer, not a crash: 503 with what to do.
@@ -37,39 +47,89 @@ public static class WebApp
                 else
                 {
                     context.Response.ContentType = "text/html; charset=utf-8";
-                    await context.Response.WriteAsync(BookPage.Message("Database unavailable", message));
+                    await context.Response.WriteAsync(Layout.Page("Database unavailable", Tab.Fx, "",
+                        Views.Message("Database unavailable", message), Array.Empty<string>(), null, Attribution.Source));
                 }
             }
         });
 
-        app.MapGet("/", async (string? date, PostgresStore store) =>
+        app.MapGet("/", async (string? date, string? ccy, PostgresStore store) =>
         {
-            if (!TryParseDate(date, out var bookDate))
-            {
-                return Results.Content(BookPage.Message("Bad date", $"'{date}' is not a date in the form yyyy-MM-dd."), "text/html", statusCode: 400);
-            }
+            if (!TryParse(date, ccy, out var bookDate, out var currency, out var problem)) return BadRequest(problem!, Tab.Fx);
+            var nav = new Nav("/", currency?.Code);
             var calendar = await store.LoadCalendarAsync();
+            var day = bookDate ?? calendar.LatestPublished;
+            var ribbon = day is null ? new List<RibbonDay>() : await FxRibbonAsync(store, calendar, day.Value);
+            var currencies = day is null ? Array.Empty<string>() : await CurrenciesAsync(store, day.Value);
             try
             {
                 var book = await new BookService(store).BuildAsync(bookDate);
-                return Results.Content(BookPage.Render(book, calendar), "text/html");
+                var translation = currency is null ? null : Translation.Translate(currency.Value,
+                    await store.LoadRatesAsync(book.Date), book.PreviousDate is null ? null : await store.LoadRatesAsync(book.PreviousDate.Value),
+                    book.ValueCad, book.PreviousValueCad, new[] { ("new_trades", book.NewTradesPnlCad), ("revaluation", book.RevaluationPnlCad) });
+                return Html(Layout.Page($"FX book, {Pages.Html.LongDate(book.Date)}", Tab.Fx, nav.Query(book.Date),
+                    Views.FxBook(book, ribbon, translation, nav, calendar), currencies, currency?.Code, Attribution.Source));
             }
             catch (BookRefusedException refusal)
             {
-                return Results.Content(BookPage.Refused(bookDate, refusal.Reasons, calendar), "text/html", statusCode: 409);
+                return Html(Layout.Page("No book", Tab.Fx, nav.Query(bookDate), Views.Refused(day, refusal.Reasons, ribbon, nav),
+                    currencies, currency?.Code, Attribution.Source), 409);
             }
+        });
+
+        app.MapGet("/bonds", async (string? date, string? ccy, BondStore bonds, PostgresStore store) =>
+        {
+            if (!TryParse(date, ccy, out var bookDate, out var currency, out var problem)) return BadRequest(problem!, Tab.Bonds);
+            var nav = new Nav("/bonds", currency?.Code);
+            var calendar = await bonds.LoadYieldCalendarAsync();
+            var day = bookDate ?? calendar.LatestPublished;
+            var ribbon = day is null ? new List<RibbonDay>() : await BondRibbonAsync(bonds, calendar, day.Value);
+            var currencies = day is null ? Array.Empty<string>() : await CurrenciesAsync(store, day.Value);
+            try
+            {
+                var book = await new BondBookService(bonds).BuildAsync(bookDate);
+                var today = await bonds.LoadCurveAsync(book.Date);
+                var before = book.PreviousDate is null ? null : await bonds.LoadCurveAsync(book.PreviousDate.Value);
+                var translation = currency is null ? null : Translation.Translate(currency.Value,
+                    await store.LoadRatesAsync(book.Date), book.PreviousDate is null ? null : await store.LoadRatesAsync(book.PreviousDate.Value),
+                    book.ValueCad, book.PreviousValueCad, new[] { ("held", book.HeldPnlCad), ("new_trades", book.NewTradesPnlCad) });
+                return Html(Layout.Page($"Bond book, {Pages.Html.LongDate(book.Date)}", Tab.Bonds, nav.Query(book.Date),
+                    Views.BondBook(book, ribbon, translation, nav, calendar, today, before), currencies, currency?.Code, BondReport.Source));
+            }
+            catch (BookRefusedException refusal)
+            {
+                return Html(Layout.Page("No bond book", Tab.Bonds, nav.Query(bookDate), Views.Refused(day, refusal.Reasons, ribbon, nav),
+                    currencies, currency?.Code, BondReport.Source), 409);
+            }
+        });
+
+        app.MapGet("/breaks", async (ReconStore recon) =>
+        {
+            var runs = await recon.ListRunsAsync();
+            var run = runs.Count == 0 ? null : runs[^1];
+            var breaks = run is null ? Array.Empty<StoredBreak>() : await recon.LoadBreaksAsync(run.Id);
+            return Html(Layout.Page("Breaks", Tab.Breaks, "", Views.Breaks(run, breaks), Array.Empty<string>(), null, Attribution.Source));
         });
 
         app.MapGet("/api/book", async (string? date, PostgresStore store) =>
         {
-            if (!TryParseDate(date, out var bookDate))
-            {
-                return Results.Json(new { error = "usage", message = $"'{date}' is not a date in the form yyyy-MM-dd" }, Output.JsonOptions, statusCode: 400);
-            }
+            if (!TryParse(date, null, out var bookDate, out _, out var problem)) return Results.Json(new { error = "usage", message = problem }, Output.JsonOptions, statusCode: 400);
             try
             {
-                var book = await new BookService(store).BuildAsync(bookDate);
-                return Results.Json(BookReport.ToJson(book), Output.JsonOptions);
+                return Results.Json(BookReport.ToJson(await new BookService(store).BuildAsync(bookDate)), Output.JsonOptions);
+            }
+            catch (BookRefusedException refusal)
+            {
+                return Results.Json(new { error = "refused", message = string.Join("; ", refusal.Reasons), reasons = refusal.Reasons }, Output.JsonOptions, statusCode: 409);
+            }
+        });
+
+        app.MapGet("/api/bonds", async (string? date, BondStore bonds) =>
+        {
+            if (!TryParse(date, null, out var bookDate, out _, out var problem)) return Results.Json(new { error = "usage", message = problem }, Output.JsonOptions, statusCode: 400);
+            try
+            {
+                return Results.Json(BondReport.ToJson(await new BondBookService(bonds).BuildAsync(bookDate)), Output.JsonOptions);
             }
             catch (BookRefusedException refusal)
             {
@@ -80,16 +140,78 @@ public static class WebApp
         return app;
     }
 
-    private static bool TryParseDate(string? text, out DateOnly? date)
+    private static IResult Html(string page, int status = 200) => Results.Content(page, "text/html; charset=utf-8", statusCode: status);
+
+    private static IResult BadRequest(string problem, Tab tab) =>
+        Html(Layout.Page("Bad request", tab, "", Views.Message("That address is not understood", problem), Array.Empty<string>(), null, Attribution.Source), 400);
+
+    private static bool TryParse(string? date, string? ccy, out DateOnly? bookDate, out Currency? currency, out string? problem)
     {
-        date = null;
-        if (string.IsNullOrEmpty(text)) return true;
-        if (DateOnly.TryParseExact(text, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None, out var parsed))
+        bookDate = null;
+        currency = null;
+        problem = null;
+        if (!string.IsNullOrEmpty(date))
         {
-            date = parsed;
-            return true;
+            if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+            {
+                problem = $"'{date}' is not a date in the form yyyy-MM-dd.";
+                return false;
+            }
+            bookDate = parsed;
         }
-        return false;
+        if (!string.IsNullOrEmpty(ccy) && ccy != "CAD")
+        {
+            try { currency = new Currency(ccy); }
+            catch (ArgumentException) { problem = $"'{ccy}' is not a three-letter currency code."; return false; }
+        }
+        return true;
+    }
+
+    /// <summary>Each published day's P&amp;L up to <paramref name="end"/>, for the ribbon; null where the book is refused.</summary>
+    private static async Task<List<RibbonDay>> FxRibbonAsync(PostgresStore store, RateCalendar calendar, DateOnly end)
+    {
+        var days = new List<RibbonDay>();
+        foreach (var d in Window(calendar, end))
+        {
+            try { days.Add(new RibbonDay(d, (await new BookService(store).BuildAsync(d)).TotalPnlCad)); }
+            catch (BookRefusedException) { days.Add(new RibbonDay(d, null)); }
+        }
+        if (!calendar.PublishedDates.Contains(end)) days.Add(new RibbonDay(end, null));
+        return days.OrderBy(d => d.Date).ToList();
+    }
+
+    private static async Task<List<RibbonDay>> BondRibbonAsync(BondStore bonds, RateCalendar calendar, DateOnly end)
+    {
+        var days = new List<RibbonDay>();
+        foreach (var d in Window(calendar, end))
+        {
+            try { days.Add(new RibbonDay(d, (await new BondBookService(bonds).BuildAsync(d)).TotalPnlCad)); }
+            catch (BookRefusedException) { days.Add(new RibbonDay(d, null)); }
+        }
+        if (!calendar.PublishedDates.Contains(end)) days.Add(new RibbonDay(end, null));
+        return days.OrderBy(d => d.Date).ToList();
+    }
+
+    /// <summary>
+    /// The published days the ribbon shows: the latest <see cref="RibbonDays"/>, so every day is seen in the same
+    /// strip; or, for an older day, the <see cref="RibbonDays"/> ending at it.
+    /// </summary>
+    private static IEnumerable<DateOnly> Window(RateCalendar calendar, DateOnly day)
+    {
+        var latest = calendar.PublishedDates.TakeLast(RibbonDays).ToList();
+        return latest.Count > 0 && day >= latest[0] ? latest : calendar.PublishedDates.Where(d => d <= day).TakeLast(RibbonDays);
+    }
+
+    /// <summary>The currencies the picker offers for a day: CAD, then every currency with a rate that day.</summary>
+    private static async Task<IReadOnlyList<string>> CurrenciesAsync(PostgresStore store, DateOnly date)
+    {
+        var rates = await store.LoadRatesAsync(date);
+        if (rates.Count == 0)
+        {
+            var calendar = await store.LoadCalendarAsync();
+            var latest = calendar.PublishedDates.Where(d => d <= date).Select(d => (DateOnly?)d).LastOrDefault();
+            if (latest is not null) rates = await store.LoadRatesAsync(latest.Value);
+        }
+        return new[] { "CAD" }.Concat(rates.All().Select(r => r.Currency.Code)).ToList();
     }
 }

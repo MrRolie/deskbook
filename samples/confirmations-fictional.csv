@@ -1,4 +1,4 @@
-# FICTIONAL: counterparty confirmations for the Demo FX Desk's invented trades, stated from the desk's side.
+# FICTIONAL: counterparty confirmations for the Demo Rates & FX Desk's invented trades, stated from the desk's side.
 # Four breaks are planted on purpose: FICT-0003 confirmed at a different CAD amount, FICT-0006 never confirmed,
 # FICT-0007 confirmed with the next day's date, and CNF-0109 quoting a trade id the desk never booked
 # (its economics match nothing the desk did).

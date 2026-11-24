@@ -1,4 +1,4 @@
-# FICTIONAL: every trade and counterparty below is invented for the Demo FX Desk. Only the rates used to price
+# FICTIONAL: every trade and counterparty below is invented for the Demo Rates & FX Desk. Only the rates used to price
 # them (fetched separately from the Bank of Canada) are real. Amounts are in units of each currency.
 # FICT-0004 is dated 2026-11-11, a day with no published rates: it belongs to the next published day's book.
 id,trade_date,counterparty,bought_currency,bought_amount,sold_currency,sold_amount

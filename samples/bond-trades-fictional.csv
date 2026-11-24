@@ -1,4 +1,4 @@
-# FICTIONAL bond trades of the Demo FX Desk. Face in CAD: positive = bought, negative = sold (FB-0003 opens a
+# FICTIONAL bond trades of the Demo Rates & FX Desk. Face in CAD: positive = bought, negative = sold (FB-0003 opens a
 # short position). Clean prices are per 100 of face, set one cent of price better than this project's model price
 # on the trade date, so each trade starts with a small gain.
 id,trade_date,bond_id,face,clean_price,counterparty

@@ -17,7 +17,7 @@ $ deskbook rates fetch --from 2026-11-02 --to 2026-11-23
 $ deskbook trades import samples/trades-fictional.csv
 8 trade(s) added, 0 already present.
 $ deskbook book --date 2026-11-23
-Demo FX Desk (fictional): book for 2026-11-23 (previous published day: 2026-11-20)
+Demo Rates & FX Desk (fictional): book for 2026-11-23 (previous published day: 2026-11-20)
 
 Ccy            Position  CAD per unit       Value CAD    Reval P&L  New trades P&L
 CAD         -474,400.00             1     -474,400.00         0.00     -574,500.00
@@ -54,8 +54,10 @@ New trades: FICT-0008
   tout échec. Voir [`docs/runbook.md`](docs/runbook.md).
 - `--json` sur chaque commande, pour un script ou un agent. Codes de sortie : 0 fait, 1 panne, 2 usage, 3 refus,
   4 rapprochement terminé avec des écarts.
-- **Une page web** en lecture seule montre le livre d'un jour publié, avec des liens vers les jours voisins, et
-  son JSON à `/api/book?date=…` (identique à `deskbook book --json`). Un jour refusé s'affiche comme un refus.
+- **Des pages web** en lecture seule : le livre de change, le livre d'obligations avec la courbe de référence, et
+  les écarts du dernier rapprochement. Un ruban montre le résultat de chaque jour publié ; chaque barre mène à ce
+  jour. Le choix de devise montre le livre dans une seconde devise. JSON à `/api/book` et `/api/bonds`, identique
+  au CLI. Un jour refusé s'affiche comme un refus.
 
 Les règles et leur raison : [`docs/problem.md`](docs/problem.md). L'ordre de lecture du code :
 [`docs/reading-path.md`](docs/reading-path.md). L'installation et l'exploitation : [`docs/runbook.md`](docs/runbook.md).
@@ -145,8 +147,10 @@ The session above shows it: fetch rates, import trades, print the book.
   [`docs/runbook.md`](docs/runbook.md).
 - `--json` on every command, for a script or an agent. Exit codes: 0 done, 1 failure, 2 usage, 3 refused,
   4 reconciliation finished with breaks.
-- **A read-only web page** shows the book for a published day, with links to the neighbouring days, and its JSON
-  at `/api/book?date=…` (identical to `deskbook book --json`). A refused day is shown as a refusal.
+- **Read-only web pages:** the FX book, the bond book with the benchmark curve, and the latest reconciliation's
+  breaks. A ribbon shows each published day's P&L; each bar leads to that day. The currency choice shows the book
+  in a second currency. JSON at `/api/book` and `/api/bonds`, identical to the CLI. A refused day is shown as a
+  refusal.
 
 The rules and why: [`docs/problem.md`](docs/problem.md). The order to read the code in:
 [`docs/reading-path.md`](docs/reading-path.md). Installing and running it: [`docs/runbook.md`](docs/runbook.md).

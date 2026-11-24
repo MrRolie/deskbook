@@ -27,7 +27,7 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        var valet = new SavedValetResponse(File.ReadAllText(Fixture("valet-fx-2026-11.json")));
+        var valet = ValetByGroup.Saved();
         var env = new AppEnvironment(_db.ConnectionString, Path.Combine(Path.GetTempPath(), "deskbook-tests", Guid.NewGuid().ToString("N")),
             new HttpClient(valet), new FixedClock(new DateTimeOffset(2026, 11, 24, 4, 0, 0, TimeSpan.Zero)));
         foreach (var args in new[]
@@ -35,10 +35,15 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
                      new[] { "db", "init" },
                      new[] { "rates", "fetch", "--from", "2026-11-02", "--to", "2026-11-23" },
                      new[] { "trades", "import", Sample("trades-fictional.csv") },
+                     new[] { "yields", "fetch", "--from", "2026-11-02", "--to", "2026-11-20" },
+                     new[] { "bonds", "import", Sample("bonds-fictional.csv") },
+                     new[] { "bonds", "trades", "import", Sample("bond-trades-fictional.csv") },
                  })
         {
             Assert.Equal(App.Ok, await App.RunAsync(args, TextWriter.Null, TextWriter.Null, env));
         }
+
+        Assert.Equal(App.Breaks, await App.RunAsync(new[] { "recon", "run", Sample("confirmations-fictional.csv") }, TextWriter.Null, TextWriter.Null, env));
 
         _app = WebApp.Build(new[] { "--urls", "http://127.0.0.1:0" }, _db.ConnectionString);
         await _app.StartAsync();
@@ -59,10 +64,10 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Book for 2026-11-23", html);
+        Assert.Contains("Monday 23 November 2026", html);
         Assert.Contains("CAD 42,827.80", html);
         Assert.Contains("+4,117.60", html);
-        Assert.Contains("Fictional desk", html);
+        Assert.Contains("This desk is invented", html);
         Assert.Contains("The Bank of Canada does not endorse this project.", html);
     }
 
@@ -73,9 +78,9 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
         var html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Contains("No book for this day", html);
+        Assert.Contains("No book for Wednesday 11 November 2026", html);
         Assert.Contains("published no rates for 2026-11-11", html);
-        Assert.DoesNotContain("<table>", html);
+        Assert.DoesNotContain("<table", html);
     }
 
     [Fact]
@@ -107,5 +112,56 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, (await _http.GetAsync("/api/book?date=11/23/2026")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await _http.GetAsync("/?date=<script>")).StatusCode);
+    }
+
+    [Fact]
+    public async Task The_ribbon_links_every_published_day_and_marks_the_current_one()
+    {
+        var html = await _http.GetStringAsync("/?date=2026-11-12");
+        Assert.Contains("<figure class=\"ribbon\">", html);
+        Assert.Contains("href=\"/?date=2026-11-02\"", html);
+        Assert.Contains("href=\"/?date=2026-11-23\"", html);
+        Assert.Contains("aria-current=\"date\"", html);
+    }
+
+    [Fact]
+    public async Task The_bond_page_shows_the_bond_book_and_the_curve()
+    {
+        var response = await _http.GetAsync("/bonds");
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Friday 20 November 2026", html);
+        Assert.Contains("+81,890.77", html);
+        Assert.Contains("<figure class=\"curve\">", html);
+        Assert.Contains("Not market quotes", html);
+    }
+
+    [Fact]
+    public async Task The_bond_JSON_endpoint_gives_the_same_book_as_the_command_line()
+    {
+        var stdout = new StringWriter();
+        var env = new AppEnvironment(_db.ConnectionString, Path.GetTempPath(), new HttpClient(), TimeProvider.System);
+        Assert.Equal(App.Ok, await App.RunAsync(new[] { "bonds", "book", "--date", "2026-11-20", "--json" }, stdout, TextWriter.Null, env));
+        Assert.Equal(stdout.ToString().TrimEnd(), (await _http.GetStringAsync("/api/bonds?date=2026-11-20")).TrimEnd());
+    }
+
+    [Fact]
+    public async Task The_breaks_page_lists_the_latest_run()
+    {
+        var html = await _http.GetStringAsync("/breaks");
+        Assert.Contains("confirmations-fictional.csv", html);
+        Assert.Contains("Missing confirmation", html);
+        Assert.Contains("FICT-0006", html);
+        Assert.Contains("5 of 8 trades matched", html);
+    }
+
+    [Fact]
+    public async Task The_book_can_be_shown_in_a_second_currency_and_a_bad_code_is_400()
+    {
+        var html = await _http.GetStringAsync("/?date=2026-11-23&ccy=USD");
+        Assert.Contains("In USD", html);
+        Assert.Contains("USD 29,805.69", html);
+        Assert.Contains("<option value=\"USD\" selected>", html);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _http.GetAsync("/?ccy=dollars")).StatusCode);
     }
 }
