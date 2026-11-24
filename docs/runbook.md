@@ -25,7 +25,9 @@ deskbook book --json > book-<date>.json
 
 - `--to` vaut par défaut la date du jour en UTC. Demander un jour pas encore publié est sans danger : une requête
   ne couvre que jusqu'à son dernier jour avec des taux, jamais au-delà.
-- Une même plage demandée deux fois le même jour UTC est lue dans le cache (`data/cache/`), sans requête.
+- Une plage déjà demandée est lue dans le cache (`data/cache/`), sans requête, si la réponse gardée atteint le
+  dernier jour demandé ou date de moins de 15 minutes. Sinon la plage est redemandée : une requête faite avant la
+  publication ne cache pas les taux publiés ensuite.
 - La sortie JSON est stable : la comparer à celle de la veille est un contrôle valable.
 
 ## Quand une exécution échoue
@@ -35,7 +37,7 @@ deskbook book --json > book-<date>.json
 | 3 | `refused: the Bank of Canada published no rates for <date>` | Jour férié, fin de semaine, ou taux pas encore publiés. Avant 17 h : réessayer plus tard. Sinon, c'est un jour sans livre. |
 | 3 | `refused: rates for <date> were never fetched` ou `... between ... were never fetched` | Lancer `rates fetch` sur une plage qui couvre ces jours. |
 | 3 | `refused: no <CCY> rate published for <date>` | La Banque ne publie pas cette devise ce jour-là. Pas de contournement : la position ne peut pas être évaluée. |
-| 1 | `Valet answered 4xx/5xx` ou délai dépassé | Attendre au moins quelques minutes, puis réessayer **une** fois. Ne jamais boucler : les conditions de la Banque interdisent de contourner ses limites. Si l'échec persiste, le livre attend le lendemain. |
+| 1 | `Valet answered 4xx/5xx`, délai dépassé, ou réponse illisible (rien n'est alors mis en cache) | Attendre au moins quelques minutes, puis réessayer **une** fois. Ne jamais boucler : les conditions de la Banque interdisent de contourner ses limites. Si l'échec persiste, le livre attend le lendemain. |
 | 1 | erreur de connexion PostgreSQL | `scripts/dev.sh db-up`, puis relancer la commande. |
 | 1 | `trade '<id>' is already stored with different fields` | Le fichier modifie une opération existante. Rien n'a été importé. Corriger le fichier : une opération ne se réécrit pas. |
 | 1 | `line N: ...` à l'import | Chaque ligne fautive est listée ; rien n'a été importé. |
@@ -76,7 +78,9 @@ deskbook book --json > book-<date>.json
 
 - `--to` defaults to today's UTC date. Asking for a day not yet published is safe: a fetch covers only up to its
   last day with rates, never beyond.
-- The same range asked twice on the same UTC day is read from the cache (`data/cache/`), with no request.
+- A range already asked for is read from the cache (`data/cache/`), with no request, if the kept answer reaches the
+  last day asked for or is less than 15 minutes old. Otherwise the range is asked again: a fetch made before
+  publication does not hide the rates published after it.
 - The JSON output is stable: comparing it with the previous day's is a valid check.
 
 ### When a run fails
@@ -86,7 +90,7 @@ deskbook book --json > book-<date>.json
 | 3 | `refused: the Bank of Canada published no rates for <date>` | Holiday, weekend, or rates not yet published. Before 17:00: try later. Otherwise it is a day with no book. |
 | 3 | `refused: rates for <date> were never fetched` or `... between ... were never fetched` | Run `rates fetch` over a range covering those days. |
 | 3 | `refused: no <CCY> rate published for <date>` | The Bank does not publish that currency that day. No workaround: the position cannot be valued. |
-| 1 | `Valet answered 4xx/5xx` or a timeout | Wait at least a few minutes, then retry **once**. Never loop: the Bank's terms forbid circumventing its limits. If it keeps failing, the book waits for the next day. |
+| 1 | `Valet answered 4xx/5xx`, a timeout, or an unreadable answer (nothing is cached then) | Wait at least a few minutes, then retry **once**. Never loop: the Bank's terms forbid circumventing its limits. If it keeps failing, the book waits for the next day. |
 | 1 | PostgreSQL connection error | `scripts/dev.sh db-up`, then rerun the command. |
 | 1 | `trade '<id>' is already stored with different fields` | The file changes an existing trade. Nothing was imported. Fix the file: a trade is not rewritten. |
 | 1 | `line N: ...` on import | Every bad line is listed; nothing was imported. |

@@ -50,10 +50,12 @@ qui porte les règles.
 9. **`Valet/ValetParser.cs`** : lit la réponse JSON de la Banque. Les valeurs arrivent en chaînes ; une série
    absente ou vide est ignorée, jamais lue comme zéro ; les jours sont triés car l'ordre de l'API dépend de la
    requête.
-10. **`Valet/ValetClient.cs`** : une requête par appel, sans boucle de reprise, et la réponse mise en cache par
-    plage et par jour UTC. *Pourquoi :* les conditions de la Banque interdisent de contourner ses limites, et
-    son guide demande de mettre en cache ce qui change une fois par jour. `TimeProvider` est injecté pour que les
-    tests fixent « aujourd'hui ».
+10. **`Valet/ValetClient.cs`** : une requête par appel, sans boucle de reprise. La réponse est mise en cache par
+    plage, seulement après avoir été lue sans erreur ; elle est réutilisée si elle atteint le dernier jour demandé
+    ou date de moins de 15 minutes. *Pourquoi :* les conditions de la Banque interdisent de contourner ses limites
+    et son guide demande de mettre en cache ce qui change une fois par jour ; mais une réponse obtenue avant la
+    publication de 16 h 30 ne doit pas cacher les taux du jour jusqu'au lendemain. `TimeProvider` est injecté pour
+    que les tests fixent l'heure et la fassent avancer.
 11. **`Postgres/schema.sql`** : quatre tables. `trade` (jamais modifiée), `rate_fetch` (chaque requête et le
     dernier jour qu'elle couvre), `rate` (valeur courante), `rate_revision` (valeurs remplacées). `numeric` sans
     précision fixe garde l'échelle publiée. Chaque instruction est `IF NOT EXISTS` : `db init` se relance.
@@ -65,7 +67,8 @@ qui porte les règles.
 ## 3. La ligne de commande : `src/Deskbook.Cli/`
 
 13. **`Program.cs`** : une ligne ; tout est dans `App`.
-14. **`App.cs`** : l'aiguillage des commandes et la traduction des exceptions en codes de sortie (0, 1, 2, 3).
+14. **`App.cs`** : l'aiguillage des commandes et la traduction des exceptions en codes de sortie (0, 1, 2, 3) ;
+    toute exception imprévue devient le code 1, dans le même format d'erreur, jamais une trace de pile.
     *Pourquoi `RunAsync(args, stdout, stderr, env)` :* les tests d'intégration appellent exactement ce que la
     console appelle, avec leur propre base, leur propre horloge et une fausse Banque.
 15. **`CliArgs.cs`** : un petit analyseur ; une option inconnue est une erreur, pour qu'une faute de frappe ne
@@ -81,7 +84,9 @@ qui porte les règles.
     puis supprimé. Sans base, les tests échouent ; ils ne sont jamais ignorés.
 19. **`Deskbook.IntegrationTests/CommandLineTests.cs`** : le CLI de bout en bout, sur un vrai PostgreSQL ; seule la
     Banque est remplacée, par une réponse réelle enregistrée (`tests/Fixtures/`).
-20. **`scripts/check-tests-can-fail.sh`** : fausse une règle à la fois et exige que les tests échouent.
+20. **`scripts/check-tests-can-fail.sh`** : fausse une règle à la fois et exige que les tests échouent ; il exige
+    aussi que les tests passent sans rien de faussé, avant et après, pour qu'une base arrêtée ne passe pas pour
+    une détection.
 
 ## 5. L'outillage : `scripts/dev.sh`, `docs/toolchain.md`, `docs/runbook.md`
 
@@ -137,9 +142,11 @@ No database, no network, no clock: the easiest part to test, so the part that ca
 
 9. **`Valet/ValetParser.cs`**: reads the Bank's JSON answer. Values arrive as strings; a missing or empty series is
    skipped, never read as zero; days are sorted because the API's order depends on the query.
-10. **`Valet/ValetClient.cs`**: one request per call, no retry loop, and the answer cached by range and UTC day.
-    *Why:* the Bank's terms forbid circumventing its limits, and its guide asks that once-a-day data be cached.
-    `TimeProvider` is injected so tests can fix "today".
+10. **`Valet/ValetClient.cs`**: one request per call, no retry loop. The answer is cached by range, only after it
+    parses; it is reused if it reaches the last day asked for or is less than 15 minutes old. *Why:* the Bank's
+    terms forbid circumventing its limits and its guide asks that once-a-day data be cached; but an answer fetched
+    before the 16:30 publication must not hide the day's rates until the next day. `TimeProvider` is injected so
+    tests can fix the time and move it forward.
 11. **`Postgres/schema.sql`**: four tables. `trade` (never updated), `rate_fetch` (each request and the last day it
     covers), `rate` (current value), `rate_revision` (replaced values). `numeric` without a fixed scale keeps the
     published precision. Every statement is `IF NOT EXISTS`: `db init` can be rerun.
@@ -150,7 +157,8 @@ No database, no network, no clock: the easiest part to test, so the part that ca
 ### 3. The command line: `src/Deskbook.Cli/`
 
 13. **`Program.cs`**: one line; everything is in `App`.
-14. **`App.cs`**: dispatches commands and turns exceptions into exit codes (0, 1, 2, 3). *Why
+14. **`App.cs`**: dispatches commands and turns exceptions into exit codes (0, 1, 2, 3); any unexpected exception
+    becomes code 1, in the same error shape, never a stack trace. *Why
     `RunAsync(args, stdout, stderr, env)`:* the integration tests call exactly what the console calls, with their
     own database, their own clock and a stand-in Bank.
 15. **`CliArgs.cs`**: a small parser; an unknown option is an error, so a typo is never ignored.
@@ -165,7 +173,8 @@ No database, no network, no clock: the easiest part to test, so the part that ca
     dropped. With no database the tests fail; they never skip.
 19. **`Deskbook.IntegrationTests/CommandLineTests.cs`**: the CLI end to end on a real PostgreSQL; only the Bank is
     replaced, by a saved real answer (`tests/Fixtures/`).
-20. **`scripts/check-tests-can-fail.sh`**: breaks one rule at a time and requires the tests to fail.
+20. **`scripts/check-tests-can-fail.sh`**: breaks one rule at a time and requires the tests to fail; it also
+    requires them to pass with nothing broken, before and after, so a stopped database never counts as a catch.
 
 ### 5. Tooling: `scripts/dev.sh`, `docs/toolchain.md`, `docs/runbook.md`
 

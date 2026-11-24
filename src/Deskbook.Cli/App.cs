@@ -68,9 +68,10 @@ public static class App
         {
             return Fail(stderr, cli.Json, Refused, "refused", string.Join("; ", e.Reasons), e.Reasons);
         }
-        catch (Exception e) when (e is NpgsqlException or HttpRequestException or TaskCanceledException
-                                      or FormatException or InvalidOperationException or ArgumentException or IOException)
+        catch (Exception e)
         {
+            // Anything else (database, network, a malformed answer, a bad file) is a failure, exit code 1, and is
+            // reported in the same shape as every other error, so a script or an agent never sees a stack trace.
             return Fail(stderr, cli.Json, Failure, "failure", e.Message);
         }
     }

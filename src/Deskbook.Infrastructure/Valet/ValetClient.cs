@@ -1,15 +1,19 @@
 using System.Globalization;
+using Deskbook.Core;
 
 namespace Deskbook.Infrastructure.Valet;
 
 /// <summary>
 /// Fetches daily exchange rates from the Bank of Canada's Valet API, one request per call, with no retry loop.
-/// Every answer is saved to the cache folder, named by range and by the UTC day it was fetched; asking again the
-/// same day reads the file instead of the network, as the Bank's guide asks for data that changes once a day.
+/// Each answer is cached by range. A cached answer is used instead of the network when it already reaches the last
+/// day asked for, or when it is less than <see cref="MinimumRefetchInterval"/> old; otherwise the range is asked
+/// again. So a fetch made before the day's publication does not hide the rates published later, and running the
+/// command repeatedly never turns into a stream of requests. An answer is cached only after it parses.
 /// </summary>
 public sealed class ValetClient
 {
     public const string DailyFxGroup = "FX_RATES_DAILY";
+    public static readonly TimeSpan MinimumRefetchInterval = TimeSpan.FromMinutes(15);
     private const string BaseUrl = "https://www.bankofcanada.ca/valet";
 
     private readonly HttpClient _http;
@@ -36,33 +40,36 @@ public sealed class ValetClient
 
         var url = UrlFor(from, to);
         var now = _clock.GetUtcNow();
-        var path = Path.Combine(_cacheDirectory,
-            $"{DailyFxGroup}_{from:yyyy-MM-dd}_{to:yyyy-MM-dd}_fetched-{now:yyyy-MM-dd}.json");
+        var bodyPath = Path.Combine(_cacheDirectory, $"{DailyFxGroup}_{from:yyyy-MM-dd}_{to:yyyy-MM-dd}.json");
+        var stampPath = bodyPath + ".fetched-at";
 
-        string json;
-        DateTimeOffset fetchedAt;
-        var fromCache = File.Exists(path);
-        if (fromCache)
+        if (File.Exists(bodyPath) && File.Exists(stampPath))
         {
-            json = await File.ReadAllTextAsync(path, cancellationToken);
-            fetchedAt = new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero);
-        }
-        else
-        {
-            using var response = await _http.GetAsync(url, cancellationToken);
-            if (!response.IsSuccessStatusCode)
+            var cachedAt = DateTimeOffset.Parse(await File.ReadAllTextAsync(stampPath, cancellationToken), CultureInfo.InvariantCulture);
+            var cachedDays = InRange(ValetParser.ParseDays(await File.ReadAllTextAsync(bodyPath, cancellationToken)), from, to);
+            var reachesTo = cachedDays.Count > 0 && cachedDays[^1].Date == to;
+            if (reachesTo || now - cachedAt < MinimumRefetchInterval)
             {
-                throw new HttpRequestException(
-                    $"Valet answered {(int)response.StatusCode} {response.ReasonPhrase} for {url}; " +
-                    "wait before trying again (see docs/runbook.md)");
+                return (new ValetObservations(DailyFxGroup, from, to, url, cachedAt, cachedDays), true);
             }
-            json = await response.Content.ReadAsStringAsync(cancellationToken);
-            Directory.CreateDirectory(_cacheDirectory);
-            await File.WriteAllTextAsync(path, json, cancellationToken);
-            fetchedAt = now;
         }
 
-        var days = ValetParser.ParseDays(json).Where(d => d.Date >= from && d.Date <= to).ToList();
-        return (new ValetObservations(DailyFxGroup, from, to, url, fetchedAt, days), fromCache);
+        using var response = await _http.GetAsync(url, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException(
+                $"Valet answered {(int)response.StatusCode} {response.ReasonPhrase} for {url}; " +
+                "wait before trying again (see docs/runbook.md)");
+        }
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        var days = InRange(ValetParser.ParseDays(json), from, to); // throws on a malformed body, before anything is cached
+
+        Directory.CreateDirectory(_cacheDirectory);
+        await File.WriteAllTextAsync(bodyPath, json, cancellationToken);
+        await File.WriteAllTextAsync(stampPath, now.ToString("O", CultureInfo.InvariantCulture), cancellationToken);
+        return (new ValetObservations(DailyFxGroup, from, to, url, now, days), false);
     }
+
+    private static List<RateSet> InRange(IEnumerable<RateSet> days, DateOnly from, DateOnly to) =>
+        days.Where(d => d.Date >= from && d.Date <= to).ToList();
 }

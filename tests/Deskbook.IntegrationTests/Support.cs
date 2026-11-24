@@ -13,22 +13,27 @@ internal static class Files
         new(id, D(date), "Test Counterparty (fictional)", new Leg(new Currency(buy), buyAmount), new Leg(new Currency(sell), sellAmount));
 }
 
-/// <summary>Stands in for the Bank of Canada: answers every request with a saved Valet response and counts calls.</summary>
-internal sealed class SavedValetResponse(string json) : HttpMessageHandler
+/// <summary>
+/// Stands in for the Bank of Canada: answers each request with the next saved body (the last one repeats) and
+/// counts calls.
+/// </summary>
+internal sealed class SavedValetResponse(params string[] bodies) : HttpMessageHandler
 {
     public int Calls { get; private set; }
     public List<string> Urls { get; } = new();
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        var body = bodies[Math.Min(Calls, bodies.Length - 1)];
         Calls++;
         Urls.Add(request.RequestUri!.ToString());
-        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) });
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
     }
 }
 
-/// <summary>A clock stopped at one instant, so cache file names and "today" are fixed in tests.</summary>
+/// <summary>A clock that only moves when a test moves it, so "today" and the cache's age are fixed in tests.</summary>
 internal sealed class FixedClock(DateTimeOffset now) : TimeProvider
 {
-    public override DateTimeOffset GetUtcNow() => now;
+    public DateTimeOffset Now { get; set; } = now;
+    public override DateTimeOffset GetUtcNow() => Now;
 }
