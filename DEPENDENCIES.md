@@ -12,6 +12,9 @@ All come from nuget.org (`nuget.config` allows no other source). Exact versions 
 Npgsql apporte `Microsoft.Extensions.Logging.Abstractions`, `Microsoft.Extensions.DependencyInjection.Abstractions`
 et `System.Diagnostics.DiagnosticSource` (11.0.0, de Microsoft). Npgsql brings these three Microsoft packages.
 
+La page web utilise ASP.NET Core, livré avec le SDK .NET (`Microsoft.AspNetCore.App`) : aucun paquet. The web page
+uses ASP.NET Core, which ships with the .NET SDK: no package.
+
 Tout le reste vient de la bibliothèque standard de .NET : `System.Text.Json` pour le JSON, `HttpClient` pour l'API
 Valet, `TimeProvider` pour l'horloge. Pas d'ORM : le SQL est écrit à la main, visible et court. Pas de bibliothèque
 de ligne de commande : sept commandes ne la justifient pas.

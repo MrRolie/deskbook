@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- A small page that shows the day's book. ASP.NET Core ships with the .NET SDK: no extra package. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Deskbook.Core\Deskbook.Core.csproj" />
+    <ProjectReference Include="..\Deskbook.Infrastructure\Deskbook.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

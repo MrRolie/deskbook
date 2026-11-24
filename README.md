@@ -37,6 +37,8 @@ New trades: FICT-0008
 - **Reproductible :** relancer le livre donne la même sortie, octet pour octet.
 - **Taux révisés :** une valeur modifiée par la Banque est mise à jour et l'ancienne conservée.
 - `--json` sur chaque commande, pour un script ou un agent. Codes de sortie : 0 fait, 1 panne, 2 usage, 3 refus.
+- **Une page web** en lecture seule montre le livre d'un jour publié, avec des liens vers les jours voisins, et
+  son JSON à `/api/book?date=…` (identique à `deskbook book --json`). Un jour refusé s'affiche comme un refus.
 
 Les règles et leur raison : [`docs/problem.md`](docs/problem.md). L'ordre de lecture du code :
 [`docs/reading-path.md`](docs/reading-path.md). L'installation et l'exploitation : [`docs/runbook.md`](docs/runbook.md).
@@ -53,6 +55,7 @@ scripts/dev.sh dotnet run --project src/Deskbook.Cli -- rates fetch --from 2026-
 scripts/dev.sh dotnet run --project src/Deskbook.Cli -- trades import samples/trades-fictional.csv
 scripts/dev.sh dotnet run --project src/Deskbook.Cli -- book --json
 scripts/dev.sh dotnet test
+scripts/dev.sh web <adresse>:<port>      # la page, publiée sur cette adresse seulement
 ```
 
 ## Comment le code est validé
@@ -65,7 +68,8 @@ Aucune personne n'a relu le code ligne par ligne. Ce qui le valide :
   de taux réels, la décomposition du résultat, chaque cas de refus, la lecture des réponses Valet et des fichiers
   d'opérations.
 - **Tests d'intégration contre un vrai PostgreSQL** (`tests/Deskbook.IntegrationTests`) : le stockage, les
-  révisions de taux, l'import idempotent, et la ligne de commande de bout en bout. Ils échouent, sans jamais être
+  révisions de taux, l'import idempotent, le délai du cache, la ligne de commande de bout en bout, et la page web
+  servie sur un vrai port. Ils échouent, sans jamais être
   ignorés, si la base est injoignable. Seule la Banque du Canada est remplacée, par une réponse Valet réelle
   enregistrée : aucun test n'utilise le réseau.
 - **Des tests qui peuvent échouer :** `scripts/check-tests-can-fail.sh` fausse une règle à la fois (signe de la
@@ -99,6 +103,8 @@ The session above shows it: fetch rates, import trades, print the book.
 - **Reproducible:** rerunning the book gives the same output, byte for byte.
 - **Revised rates:** a value the Bank changes is updated and the old one kept.
 - `--json` on every command, for a script or an agent. Exit codes: 0 done, 1 failure, 2 usage, 3 refused.
+- **A read-only web page** shows the book for a published day, with links to the neighbouring days, and its JSON
+  at `/api/book?date=…` (identical to `deskbook book --json`). A refused day is shown as a refusal.
 
 The rules and why: [`docs/problem.md`](docs/problem.md). The order to read the code in:
 [`docs/reading-path.md`](docs/reading-path.md). Installing and running it: [`docs/runbook.md`](docs/runbook.md).
@@ -117,7 +123,7 @@ No person reviewed the code line by line. What validates it:
 - **Unit tests** (`tests/Deskbook.Tests`): the book's arithmetic against hand calculations from real rates, the
   P&L split, every refusal case, reading Valet answers and trade files.
 - **Integration tests against a real PostgreSQL** (`tests/Deskbook.IntegrationTests`): storage, rate revisions,
-  idempotent import, and the command line end to end. They fail, never skip, when the database is unreachable.
+  idempotent import, the cache's timing, the command line end to end, and the web page served on a real port. They fail, never skip, when the database is unreachable.
   Only the Bank of Canada is replaced, by a saved real Valet answer: no test uses the network.
 - **Tests that can fail:** `scripts/check-tests-can-fail.sh` breaks one rule at a time (revaluation sign, new-trade
   rule, hole in the rates, missing rate, ignored revision, stale cache) and requires the tests to fail each time.

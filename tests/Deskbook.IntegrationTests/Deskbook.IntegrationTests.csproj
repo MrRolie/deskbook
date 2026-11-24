@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\src\Deskbook.Core\Deskbook.Core.csproj" />
     <ProjectReference Include="..\..\src\Deskbook.Infrastructure\Deskbook.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Deskbook.Cli\Deskbook.Cli.csproj" />
+    <ProjectReference Include="..\..\src\Deskbook.Web\Deskbook.Web.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Fixtures\**" LinkBase="Fixtures" CopyToOutputDirectory="PreserveNewest" />

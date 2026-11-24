@@ -73,8 +73,19 @@ qui porte les règles.
     console appelle, avec leur propre base, leur propre horloge et une fausse Banque.
 15. **`CliArgs.cs`** : un petit analyseur ; une option inconnue est une erreur, pour qu'une faute de frappe ne
     soit jamais ignorée.
-16. **`BookReport.cs`** et **`Output.cs`** : le livre en JSON (noms en `snake_case`, `"fictional": true`, la
-    source) ou en tableau. L'arrondi au cent se fait ici, et seulement ici.
+16. **`src/Deskbook.Core/Reporting/BookReport.cs`** et **`Output.cs`** : le livre en JSON (noms en
+    `snake_case`, `"fictional": true`, la source) ou en tableau. L'arrondi au cent se fait ici, et seulement ici.
+    *Pourquoi dans Core :* la ligne de commande et la page s'en servent toutes deux ; c'est du formatage pur, sans
+    entrée ni sortie.
+
+## 3 bis. La page : `src/Deskbook.Web/`
+
+16a. **`WebApp.cs`** : ASP.NET Core en « minimal API », deux routes en lecture seule : `/` (la page) et
+    `/api/book` (le même JSON que le CLI ; un refus donne HTTP 409, une date illisible 400). `Build(args,
+    connexion)` est séparé de `Program.cs` pour que les tests démarrent la vraie application sur un port libre.
+16b. **`BookPage.cs`** : la page construite en chaîne, sans moteur de gabarit ni script ni fichier externe ; chaque
+    valeur passe par `WebUtility.HtmlEncode`. Un gain et une perte se distinguent par leur signe écrit, pas
+    seulement par la couleur. Un jour refusé affiche ses raisons, jamais un livre vide.
 
 ## 4. Les preuves : `tests/`
 
@@ -82,8 +93,9 @@ qui porte les règles.
     des assertions. C'est le meilleur endroit pour expliquer le P&L.
 18. **`Deskbook.IntegrationTests/TestDatabase.cs`** : chaque classe de tests a son propre schéma PostgreSQL, créé
     puis supprimé. Sans base, les tests échouent ; ils ne sont jamais ignorés.
-19. **`Deskbook.IntegrationTests/CommandLineTests.cs`** : le CLI de bout en bout, sur un vrai PostgreSQL ; seule la
-    Banque est remplacée, par une réponse réelle enregistrée (`tests/Fixtures/`).
+19. **`Deskbook.IntegrationTests/CommandLineTests.cs`**, **`ValetCacheTests.cs`** et **`WebPageTests.cs`** : le
+    CLI de bout en bout, le délai du cache avec une horloge qu'on avance, et la page servie sur un vrai port, tous
+    sur un vrai PostgreSQL ; seule la Banque est remplacée, par une réponse réelle enregistrée (`tests/Fixtures/`).
 20. **`scripts/check-tests-can-fail.sh`** : fausse une règle à la fois et exige que les tests échouent ; il exige
     aussi que les tests passent sans rien de faussé, avant et après, pour qu'une base arrêtée ne passe pas pour
     une détection.
@@ -162,8 +174,18 @@ No database, no network, no clock: the easiest part to test, so the part that ca
     `RunAsync(args, stdout, stderr, env)`:* the integration tests call exactly what the console calls, with their
     own database, their own clock and a stand-in Bank.
 15. **`CliArgs.cs`**: a small parser; an unknown option is an error, so a typo is never ignored.
-16. **`BookReport.cs`** and **`Output.cs`**: the book as JSON (`snake_case` names, `"fictional": true`, the source)
-    or as a table. Rounding to the cent happens here and only here.
+16. **`src/Deskbook.Core/Reporting/BookReport.cs`** and **`Output.cs`**: the book as JSON (`snake_case` names,
+    `"fictional": true`, the source) or as a table. Rounding to the cent happens here and only here. *Why in Core:*
+    both the command line and the page use them; it is pure formatting, no input or output.
+
+### 3b. The page: `src/Deskbook.Web/`
+
+16a. **`WebApp.cs`**: ASP.NET Core minimal API, two read-only routes: `/` (the page) and `/api/book` (the same JSON
+    as the CLI; a refusal is HTTP 409, an unreadable date 400). `Build(args, connection)` is separate from
+    `Program.cs` so the tests start the real application on a free port.
+16b. **`BookPage.cs`**: the page built as a string, with no template engine, script or external file; every value
+    goes through `WebUtility.HtmlEncode`. A gain and a loss differ by their written sign, not only by colour. A
+    refused day shows its reasons, never an empty book.
 
 ### 4. The evidence: `tests/`
 
@@ -171,8 +193,9 @@ No database, no network, no clock: the easiest part to test, so the part that ca
     best place to explain the P&L from.
 18. **`Deskbook.IntegrationTests/TestDatabase.cs`**: each test class gets its own PostgreSQL schema, created then
     dropped. With no database the tests fail; they never skip.
-19. **`Deskbook.IntegrationTests/CommandLineTests.cs`**: the CLI end to end on a real PostgreSQL; only the Bank is
-    replaced, by a saved real answer (`tests/Fixtures/`).
+19. **`Deskbook.IntegrationTests/CommandLineTests.cs`**, **`ValetCacheTests.cs`** and **`WebPageTests.cs`**: the
+    CLI end to end, the cache's timing with a clock the test moves, and the page served on a real port, all on a
+    real PostgreSQL; only the Bank is replaced, by a saved real answer (`tests/Fixtures/`).
 20. **`scripts/check-tests-can-fail.sh`**: breaks one rule at a time and requires the tests to fail; it also
     requires them to pass with nothing broken, before and after, so a stopped database never counts as a catch.
 

@@ -46,6 +46,12 @@ deskbook book --json > book-<date>.json
 Une révision de taux (`n revised` à la récupération) n'est pas une erreur : l'ancienne valeur est conservée
 (`deskbook rates revisions`) et les livres relancés utilisent la nouvelle.
 
+## La page
+
+`scripts/dev.sh web <adresse>:<port>` sert la page en lecture seule sur cette adresse seulement (par exemple
+l'adresse du réseau privé de la machine). La page ne récupère aucun taux et ne modifie rien. PostgreSQL reste sans
+port publié.
+
 ## Une tâche de nuit
 
 Rien n'est installé comme service. Pour une exécution automatique, une minuterie systemd ou une entrée cron lance
@@ -98,6 +104,11 @@ deskbook book --json > book-<date>.json
 
 A rate revision (`n revised` on a fetch) is not an error: the old value is kept (`deskbook rates revisions`) and
 rerun books use the new one.
+
+### The page
+
+`scripts/dev.sh web <address>:<port>` serves the read-only page on that address only (for example the machine's
+private network address). The page fetches no rates and changes nothing. PostgreSQL stays unpublished.
 
 ### A nightly job
 

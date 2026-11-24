@@ -3,6 +3,7 @@
 #   scripts/dev.sh db-up          start PostgreSQL on a private Docker network (no published port)
 #   scripts/dev.sh dotnet <args>  run the .NET SDK against this checkout, as the calling user
 #   scripts/dev.sh psql [args]    open psql inside the database container
+#   scripts/dev.sh web ADDR:PORT  serve the book page on that address only (the database stays unpublished)
 # State (database password, NuGet cache) lives in .dev/, which git ignores.
 set -euo pipefail
 
@@ -51,9 +52,17 @@ case "${1:-}" in
       -e DESKBOOK_CACHE=/src/data/cache \
       -v "$dev/home:/dev-home" -v "$dev/nuget:/nuget" -v "$root:/src" -w /src \
       "$sdk_image" dotnet "$@" ;;
+  web)
+    bind="${2:?give the address and port to publish on, for example 100.64.0.1:8820}"
+    exec docker run --rm -i --user "$(id -u):$(id -g)" --network "$network" -p "$bind:8080" \
+      -e HOME=/dev-home -e DOTNET_CLI_HOME=/dev-home -e NUGET_PACKAGES=/nuget \
+      -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 -e DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
+      -e DESKBOOK_DB="Host=$pg_name;Username=deskbook;Password=$password;Database=deskbook" \
+      -v "$dev/home:/dev-home" -v "$dev/nuget:/nuget" -v "$root:/src" -w /src \
+      "$sdk_image" dotnet run --project src/Deskbook.Web -- --urls http://0.0.0.0:8080 ;;
   psql)
     shift
     exec docker exec -it "$pg_name" psql -U deskbook -d deskbook "$@" ;;
   *)
-    sed -n '2,6p' "$0"; exit 2 ;;
+    sed -n '2,7p' "$0"; exit 2 ;;
 esac
