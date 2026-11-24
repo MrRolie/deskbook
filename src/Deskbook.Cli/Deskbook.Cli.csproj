@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The command line: what a person at the desk and an agent both call. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>deskbook</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Deskbook.Core\Deskbook.Core.csproj" />
+    <ProjectReference Include="..\Deskbook.Infrastructure\Deskbook.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

@@ -5,3 +5,4 @@ obj/
 data/cache/
 .worktrees/
 .DS_Store
+.dev/

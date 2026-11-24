@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Deskbook.Core\Deskbook.Core.csproj" />
+    <ProjectReference Include="..\..\src\Deskbook.Infrastructure\Deskbook.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Deskbook.Cli\Deskbook.Cli.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Fixtures\**" LinkBase="Fixtures" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\**" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

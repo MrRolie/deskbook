@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The domain: trades, rates, the book. No database, no network. -->
+</Project>

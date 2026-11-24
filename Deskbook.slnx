@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Deskbook.Cli/Deskbook.Cli.csproj" />
+    <Project Path="src/Deskbook.Core/Deskbook.Core.csproj" />
+    <Project Path="src/Deskbook.Infrastructure/Deskbook.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Deskbook.IntegrationTests/Deskbook.IntegrationTests.csproj" />
+    <Project Path="tests/Deskbook.Tests/Deskbook.Tests.csproj" />
+  </Folder>
+</Solution>
