@@ -19,6 +19,7 @@ Après 17 h :
 
 ```
 deskbook rates fetch --from <lundi de la semaine précédente>
+deskbook yields fetch --from <lundi de la semaine précédente>
 deskbook trades import <fichier du jour>.csv
 deskbook book --json > book-<date>.json
 ```
@@ -39,6 +40,7 @@ deskbook book --json > book-<date>.json
 |---|---|---|
 | 3 | `refused: the Bank of Canada published no rates for <date>` | Jour férié, fin de semaine, ou taux pas encore publiés. Avant 17 h : réessayer plus tard. Sinon, c'est un jour sans livre. |
 | 3 | `refused: rates for <date> were never fetched` ou `... between ... were never fetched` | Lancer `rates fetch` sur une plage qui couvre ces jours. |
+| 3 | `bond <id>: maturity ... outside the benchmark curve (2 to 10 years)` | L'obligation ne peut pas être évaluée avec les rendements publiés. Pas de contournement : la courbe n'est pas extrapolée. |
 | 3 | `refused: no <CCY> rate published for <date>` | La Banque ne publie pas cette devise ce jour-là. Pas de contournement : la position ne peut pas être évaluée. |
 | 1 | `Valet answered 4xx/5xx`, délai dépassé, ou réponse illisible (rien n'est alors mis en cache) | Attendre au moins quelques minutes, puis réessayer **une** fois. Ne jamais boucler : les conditions de la Banque interdisent de contourner ses limites. Si l'échec persiste, le livre attend le lendemain. |
 | 1 | erreur de connexion PostgreSQL | `scripts/dev.sh db-up`, puis relancer la commande. |
@@ -74,8 +76,8 @@ tables (`deskbook nightly` les crée).
 ## La tâche du soir
 
 `deskbook nightly --out DIR [--from AAAA-MM-JJ] [--confirmations FICHIER]` fait tout le soir en une commande :
-schéma, taux des 14 derniers jours (pour attraper les révisions), livre du dernier jour publié dans
-`DIR/book-<date>.json`, rapprochement si un relevé est donné, résumé dans `DIR/last-run.json`. Une étape qui
+schéma, taux et rendements des 14 derniers jours (pour attraper les révisions), livre de change et livre
+d'obligations du dernier jour publié dans `DIR/book-<date>.json` et `DIR/bond-book-<date>.json`, rapprochement si un relevé est donné, résumé dans `DIR/last-run.json`. Une étape qui
 échoue n'empêche pas la suivante : si Valet est en panne, le livre est quand même écrit avec les taux stockés.
 Code : 1 si une étape a échoué, sinon 3 si le livre est refusé, sinon 4 s'il y a des écarts, sinon 0.
 
@@ -105,6 +107,7 @@ The Bank publishes its daily rates around 16:30 Eastern time, sometimes with a s
 
 ```
 deskbook rates fetch --from <Monday of the previous week>
+deskbook yields fetch --from <Monday of the previous week>
 deskbook trades import <today's file>.csv
 deskbook book --json > book-<date>.json
 ```
@@ -125,6 +128,7 @@ deskbook book --json > book-<date>.json
 |---|---|---|
 | 3 | `refused: the Bank of Canada published no rates for <date>` | Holiday, weekend, or rates not yet published. Before 17:00: try later. Otherwise it is a day with no book. |
 | 3 | `refused: rates for <date> were never fetched` or `... between ... were never fetched` | Run `rates fetch` over a range covering those days. |
+| 3 | `bond <id>: maturity ... outside the benchmark curve (2 to 10 years)` | The bond cannot be valued from the published yields. No workaround: the curve is not extrapolated. |
 | 3 | `refused: no <CCY> rate published for <date>` | The Bank does not publish that currency that day. No workaround: the position cannot be valued. |
 | 1 | `Valet answered 4xx/5xx`, a timeout, or an unreadable answer (nothing is cached then) | Wait at least a few minutes, then retry **once**. Never loop: the Bank's terms forbid circumventing its limits. If it keeps failing, the book waits for the next day. |
 | 1 | PostgreSQL connection error | `scripts/dev.sh db-up`, then rerun the command. |
@@ -159,7 +163,8 @@ Until the job has run once, the page answers 503 "Database unavailable": the dat
 ### The evening job
 
 `deskbook nightly --out DIR [--from yyyy-MM-dd] [--confirmations FILE]` does the whole evening in one command:
-schema, the last 14 days of rates (to catch revisions), the latest published day's book in `DIR/book-<date>.json`,
+schema, the last 14 days of rates and yields (to catch revisions), the FX and bond books of the latest published
+days in `DIR/book-<date>.json` and `DIR/bond-book-<date>.json`,
 reconciliation if a statement is given, a summary in `DIR/last-run.json`. A failed step does not stop the next one:
 if Valet is down, the book is still written from the stored rates. Code: 1 if any step failed, else 3 if the book was
 refused, else 4 if there are breaks, else 0.

@@ -5,7 +5,11 @@ using Npgsql;
 namespace Deskbook.Infrastructure.Postgres;
 
 /// <summary>What one stored fetch changed.</summary>
-public sealed record FetchOutcome(long FetchId, int DaysWithRates, int RatesAdded, int RatesUnchanged, IReadOnlyList<RateRevision> Revisions);
+public sealed record FetchOutcome(long FetchId, int DaysWithRates, int RatesAdded, int RatesUnchanged, IReadOnlyList<RateRevision> Revisions)
+{
+    /// <summary>For a benchmark-yield fetch: how many stored yields changed (kept in yield_revision).</summary>
+    public int YieldRevisions { get; init; }
+}
 
 /// <summary>A stored rate that a later fetch changed. The old value is kept in the rate_revision table.</summary>
 public sealed record RateRevision(DateOnly Date, Currency Currency, decimal OldCadPerUnit, decimal NewCadPerUnit);
@@ -210,7 +214,7 @@ public sealed class PostgresStore : IBookSource
 
         var fetched = new List<DateRange>();
         await using (var command = _db.CreateCommand(
-            "SELECT requested_from, covered_to FROM rate_fetch WHERE covered_to IS NOT NULL"))
+            "SELECT requested_from, covered_to FROM rate_fetch WHERE covered_to IS NOT NULL AND series_group = 'FX_RATES_DAILY'"))
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
         {
             while (await reader.ReadAsync(cancellationToken))

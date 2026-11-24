@@ -92,3 +92,45 @@ CREATE OR REPLACE TRIGGER recon_break_append_only BEFORE UPDATE OR DELETE ON rec
     FOR EACH ROW EXECUTE FUNCTION deskbook_append_only();
 CREATE OR REPLACE TRIGGER recon_resolution_append_only BEFORE UPDATE OR DELETE ON recon_resolution
     FOR EACH ROW EXECUTE FUNCTION deskbook_append_only();
+
+-- The bond book. Bonds and bond trades are invented; yields are the Bank of Canada's benchmark yields, in percent.
+CREATE TABLE IF NOT EXISTS bond (
+    id             text    PRIMARY KEY,
+    description    text    NOT NULL,
+    coupon_percent numeric NOT NULL CHECK (coupon_percent BETWEEN 0 AND 25),
+    maturity       date    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS bond_trade (
+    id           text        PRIMARY KEY,
+    trade_date   date        NOT NULL,
+    bond_id      text        NOT NULL REFERENCES bond (id),
+    face         numeric     NOT NULL CHECK (face <> 0),
+    clean_price  numeric     NOT NULL CHECK (clean_price > 0),
+    counterparty text        NOT NULL,
+    entered_at   timestamptz NOT NULL DEFAULT now()
+);
+
+-- One benchmark yield per day and tenor (2, 3, 5, 7 or 10 years). Fetches are logged in rate_fetch with
+-- series_group 'bond_yields_benchmark'.
+CREATE TABLE IF NOT EXISTS yield_point (
+    rate_date     date    NOT NULL,
+    tenor_years   int     NOT NULL CHECK (tenor_years IN (2, 3, 5, 7, 10)),
+    yield_percent numeric NOT NULL,
+    fetch_id      bigint  NOT NULL REFERENCES rate_fetch (id),
+    PRIMARY KEY (rate_date, tenor_years)
+);
+
+CREATE TABLE IF NOT EXISTS yield_revision (
+    id                bigint  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    rate_date         date    NOT NULL,
+    tenor_years       int     NOT NULL,
+    old_yield_percent numeric NOT NULL,
+    new_yield_percent numeric NOT NULL,
+    fetch_id          bigint  NOT NULL REFERENCES rate_fetch (id)
+);
+
+CREATE OR REPLACE TRIGGER bond_append_only BEFORE UPDATE OR DELETE ON bond
+    FOR EACH ROW EXECUTE FUNCTION deskbook_append_only();
+CREATE OR REPLACE TRIGGER bond_trade_append_only BEFORE UPDATE OR DELETE ON bond_trade
+    FOR EACH ROW EXECUTE FUNCTION deskbook_append_only();

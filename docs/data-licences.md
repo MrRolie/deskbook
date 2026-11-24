@@ -39,7 +39,16 @@ La version française fait foi. The French version is the reference; the English
   2026-11-02 au 2026-11-23, 24 ont une valeur chaque jour ; `FXRUBCAD`, `FXSARCAD` et `FXVNDCAD` n'en ont aucune.
 - Le 2026-11-11 (jour du Souvenir) n'a aucune observation : un jour ouvrable sans taux publié.
 - Il existe aussi des rendements obligataires de référence (groupe `bond_yields_benchmark` : 2, 3, 5, 7, 10 ans,
-  long terme, obligations à rendement réel) et le CORRA. Ils ne sont pas utilisés dans la première version.
+  long terme, obligations à rendement réel) et le CORRA.
+
+### Rendements obligataires de référence (depuis le 2026-11-24)
+
+Le livre d'obligations utilise les séries `BD.CDN.2YR.DQ.YLD` à `BD.CDN.10YR.DQ.YLD` du groupe
+`bond_yields_benchmark`, en pour cent, aux mêmes conditions. Les séries « long terme » et « rendement réel » ne sont
+pas utilisées : la Banque n'en donne pas l'échéance en années. Les prix d'obligations affichés sont **calculés par
+ce projet** à partir de ces rendements (modification au sens du §1.1, indiquée dans chaque sortie) ; ce ne sont pas
+des cotes de marché. À la première requête (2026-11-24, UTC), les rendements du 2026-11-23 n'étaient pas encore
+publiés : ils paraissent avec un jour de retard sur les taux de change.
 
 ## Aucune autre source
 
@@ -83,7 +92,15 @@ et marqués comme fictifs.
   From 2026-11-02 to 2026-11-23, 24 carry a value every day; `FXRUBCAD`, `FXSARCAD` and `FXVNDCAD` carry none.
 - 2026-11-11 (Remembrance Day) has no observation: a weekday with no published rate.
 - Benchmark bond yields (group `bond_yields_benchmark`: 2, 3, 5, 7, 10 years, long-term, real return bonds) and
-  CORRA also exist. The first version does not use them.
+  CORRA also exist.
+
+### Benchmark bond yields (since 2026-11-24)
+
+The bond book uses series `BD.CDN.2YR.DQ.YLD` to `BD.CDN.10YR.DQ.YLD` of group `bond_yields_benchmark`, in percent,
+on the same terms. The long-term and real-return series are not used: the Bank does not state their term in years.
+The bond prices shown are **computed by this project** from those yields (a change in the sense of §1.1, stated in
+every output); they are not market quotes. At the first fetch (2026-11-24, UTC) the yields for 2026-11-23 were not
+yet published: they appear a day later than the exchange rates.
 
 ## No other source
 

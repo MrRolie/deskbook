@@ -19,7 +19,7 @@ public class PostgresStoreTests : IClassFixture<TestDatabase>, IAsyncLifetime
     public async Task InitializeAsync()
     {
         await _store.InitializeAsync();
-        await using var clear = _db.DataSource.CreateCommand("TRUNCATE trade, rate, rate_revision, rate_fetch");
+        await using var clear = _db.DataSource.CreateCommand("TRUNCATE trade, rate, rate_revision, rate_fetch CASCADE");
         await clear.ExecuteNonQueryAsync();
     }
 

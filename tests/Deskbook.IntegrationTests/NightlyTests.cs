@@ -28,13 +28,15 @@ public class NightlyTests : IClassFixture<TestDatabase>, IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        var env = Env(new SavedValetResponse(File.ReadAllText(Fixture("valet-fx-2026-11.json"))));
+        var env = Env(ValetByGroup.Saved());
         Assert.Equal(App.Ok, (await Run(env, "db", "init")).Code);
-        await using (var clear = _db.DataSource.CreateCommand("TRUNCATE trade, rate, rate_revision, rate_fetch, recon_resolution, recon_break, recon_run"))
+        await using (var clear = _db.DataSource.CreateCommand("TRUNCATE trade, rate, rate_revision, rate_fetch, recon_resolution, recon_break, recon_run, bond_trade, bond, yield_point, yield_revision CASCADE"))
         {
             await clear.ExecuteNonQueryAsync();
         }
         Assert.Equal(App.Ok, (await Run(env, "trades", "import", Sample("trades-fictional.csv"))).Code);
+        Assert.Equal(App.Ok, (await Run(env, "bonds", "import", Sample("bonds-fictional.csv"))).Code);
+        Assert.Equal(App.Ok, (await Run(env, "bonds", "trades", "import", Sample("bond-trades-fictional.csv"))).Code);
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -42,7 +44,7 @@ public class NightlyTests : IClassFixture<TestDatabase>, IAsyncLifetime
     [Fact]
     public async Task A_clean_evening_writes_the_latest_book_and_exits_0()
     {
-        var env = Env(new SavedValetResponse(File.ReadAllText(Fixture("valet-fx-2026-11.json"))));
+        var env = Env(ValetByGroup.Saved());
         var (code, summary) = await Run(env, "nightly", "--out", _out, "--from", "2026-11-02");
 
         Assert.Equal(App.Ok, code);
@@ -53,6 +55,11 @@ public class NightlyTests : IClassFixture<TestDatabase>, IAsyncLifetime
         // The file is exactly what "book --json" prints for that day.
         var (_, printed) = await Run(env, "book", "--date", "2026-11-23", "--json");
         Assert.Equal(printed, await File.ReadAllTextAsync(bookFile));
+        // And the bond book of the latest day with yields (they are published a day later than exchange rates here).
+        var bondFile = Path.Combine(_out, "bond-book-2026-11-20.json");
+        var (_, bondPrinted) = await Run(env, "bonds", "book", "--date", "2026-11-20", "--json");
+        Assert.Equal(bondPrinted, await File.ReadAllTextAsync(bondFile));
+
         using var json = JsonDocument.Parse(summary);
         Assert.Equal(0, json.RootElement.GetProperty("exit_code").GetInt32());
     }
@@ -60,7 +67,7 @@ public class NightlyTests : IClassFixture<TestDatabase>, IAsyncLifetime
     [Fact]
     public async Task Breaks_in_the_confirmations_make_the_job_exit_4()
     {
-        var env = Env(new SavedValetResponse(File.ReadAllText(Fixture("valet-fx-2026-11.json"))));
+        var env = Env(ValetByGroup.Saved());
         var (code, summary) = await Run(env, "nightly", "--out", _out, "--from", "2026-11-02",
             "--confirmations", Sample("confirmations-fictional.csv"));
 
@@ -71,8 +78,9 @@ public class NightlyTests : IClassFixture<TestDatabase>, IAsyncLifetime
     [Fact]
     public async Task When_the_Bank_is_down_the_job_fails_but_still_writes_the_book_from_stored_rates()
     {
-        var up = Env(new SavedValetResponse(File.ReadAllText(Fixture("valet-fx-2026-11.json"))));
+        var up = Env(ValetByGroup.Saved());
         Assert.Equal(App.Ok, (await Run(up, "rates", "fetch", "--from", "2026-11-02", "--to", "2026-11-23")).Code);
+        Assert.Equal(App.Ok, (await Run(up, "yields", "fetch", "--from", "2026-11-02", "--to", "2026-11-20")).Code);
 
         var down = new AppEnvironment(_db.ConnectionString, Path.Combine(_out, "..", "empty-cache"), new HttpClient(new UnavailableValet()), _clock);
         var (code, summary) = await Run(down, "nightly", "--out", _out, "--from", "2026-11-02");

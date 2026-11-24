@@ -6,7 +6,8 @@ Le livre d'un pupitre de change **fictif** : des opérations au comptant entrent
 résultat quotidien (P&L) en dollars canadiens sortent, évalués aux taux de change réels publiés par la Banque du
 Canada. C# sur .NET 10, PostgreSQL 18, une ligne de commande avec sortie JSON.
 
-Le pupitre, ses contreparties, ses opérations et ses positions sont inventés. Seuls les taux sont réels.
+Le pupitre, ses contreparties, ses obligations, ses opérations et ses positions sont inventés. Seules les données
+de marché sont réelles : taux de change et rendements obligataires de référence de la Banque du Canada.
 
 ## Ce qu'il fait
 
@@ -36,6 +37,10 @@ New trades: FICT-0008
   devise sans taux, ni quand les taux stockés laissent un trou. Code de sortie 3 et la raison.
 - **Reproductible :** relancer le livre donne la même sortie, octet pour octet.
 - **Taux révisés :** une valeur modifiée par la Banque est mise à jour et l'ancienne conservée.
+- **Livre d'obligations :** des obligations fictives de type fédéral, évaluées chaque jour à partir des rendements
+  de référence de la Banque du Canada (2 à 10 ans, interpolés), avec coupon couru, prix pied de coupon, DV01 et
+  résultat du jour (positions détenues + opérations nouvelles). C'est un prix de modèle, dit comme tel ; une
+  échéance hors de la courbe est refusée, jamais extrapolée. `deskbook yields fetch`, `deskbook bonds book`.
 - **Rapprochement :** `deskbook recon run <confirmations.csv>` compare les opérations du pupitre aux confirmations
   (fictives) des contreparties et liste les écarts : confirmation manquante, opération inconnue, doublon, champ
   différent avec les deux valeurs. Chaque exécution est gardée avec l'empreinte SHA-256 du fichier lu ; un écart
@@ -64,6 +69,10 @@ scripts/dev.sh dotnet run --project src/Deskbook.Cli -- rates fetch --from 2026-
 scripts/dev.sh dotnet run --project src/Deskbook.Cli -- trades import samples/trades-fictional.csv
 scripts/dev.sh dotnet run --project src/Deskbook.Cli -- book --json
 scripts/dev.sh dotnet run --project src/Deskbook.Cli -- recon run samples/confirmations-fictional.csv
+scripts/dev.sh dotnet run --project src/Deskbook.Cli -- yields fetch --from 2026-11-02 --to 2026-11-20
+scripts/dev.sh dotnet run --project src/Deskbook.Cli -- bonds import samples/bonds-fictional.csv
+scripts/dev.sh dotnet run --project src/Deskbook.Cli -- bonds trades import samples/bond-trades-fictional.csv
+scripts/dev.sh dotnet run --project src/Deskbook.Cli -- bonds book
 scripts/dev.sh dotnet test
 scripts/dev.sh web <adresse>:<port>      # la page, publiée sur cette adresse seulement
 ```
@@ -74,6 +83,8 @@ scripts/dev.sh web <adresse>:<port>      # la page, publiée sur cette adresse s
 
 Aucune personne n'a relu le code ligne par ligne. Ce qui le valide :
 
+- **Prix d'obligations contre une implémentation indépendante :** les prix, coupons courus, DV01 et livres
+  d'obligations attendus par les tests viennent d'un script Python séparé appliquant la même convention, pas du C#.
 - **Tests unitaires** (`tests/Deskbook.Tests`) : l'arithmétique du livre contre des calculs faits à la main à partir
   de taux réels, la décomposition du résultat, chaque cas de refus, la lecture des réponses Valet et des fichiers
   d'opérations.
@@ -84,7 +95,8 @@ Aucune personne n'a relu le code ligne par ligne. Ce qui le valide :
   enregistrée : aucun test n'utilise le réseau.
 - **Des tests qui peuvent échouer :** `scripts/check-tests-can-fail.sh` fausse une règle à la fois (signe de la
   réévaluation, opération nouvelle, trou dans les taux, taux manquant, révision ignorée, cache périmé, écart de
-  montant non signalé, piste d'audit modifiable, échec masqué par la tâche du soir) et exige que les tests
+  montant non signalé, piste d'audit modifiable, échec masqué par la tâche du soir, calendrier des taux faussé par les rendements,
+  actualisation décalée d'une période, coupons oubliés) et exige que les tests
   échouent à chaque fois.
 
 ## Données
@@ -101,7 +113,8 @@ The book of a **fictional** currency desk: spot trades go in; positions per curr
 Canadian dollars come out, valued at the real exchange rates the Bank of Canada publishes. C# on .NET 10,
 PostgreSQL 18, a command line with JSON output.
 
-The desk, its counterparties, trades and positions are invented. Only the rates are real.
+The desk, its counterparties, bonds, trades and positions are invented. Only the market data is real: Bank of
+Canada exchange rates and benchmark bond yields.
 
 ### What it does
 
@@ -113,6 +126,10 @@ The session above shows it: fetch rates, import trades, print the book.
   with no rate, or when the stored rates leave a hole. Exit code 3 and the reason.
 - **Reproducible:** rerunning the book gives the same output, byte for byte.
 - **Revised rates:** a value the Bank changes is updated and the old one kept.
+- **Bond book:** fictional federal-style bonds, valued daily from the Bank of Canada's benchmark yields (2 to 10
+  years, interpolated), with accrued interest, clean price, DV01 and the day's P&L (held positions + new trades).
+  It is a model price, labelled as one; a maturity outside the curve is refused, never extrapolated.
+  `deskbook yields fetch`, `deskbook bonds book`.
 - **Reconciliation:** `deskbook recon run <confirmations.csv>` compares the desk's trades with (fictional)
   counterparty confirmations and lists the breaks: missing confirmation, unknown trade, duplicate, a differing
   field with both values. Every run is kept with the SHA-256 of the file it read; a break collects resolution
@@ -139,6 +156,8 @@ Only Docker is needed; the .NET SDK and PostgreSQL run in their official images,
 
 No person reviewed the code line by line. What validates it:
 
+- **Bond prices against an independent implementation:** the prices, accrued interest, DV01 and bond books the
+  tests expect come from a separate Python script applying the same convention, not from the C#.
 - **Unit tests** (`tests/Deskbook.Tests`): the book's arithmetic against hand calculations from real rates, the
   P&L split, every refusal case, reading Valet answers and trade files.
 - **Integration tests against a real PostgreSQL** (`tests/Deskbook.IntegrationTests`): storage, rate revisions,
@@ -146,7 +165,8 @@ No person reviewed the code line by line. What validates it:
   Only the Bank of Canada is replaced, by a saved real Valet answer: no test uses the network.
 - **Tests that can fail:** `scripts/check-tests-can-fail.sh` breaks one rule at a time (revaluation sign, new-trade
   rule, hole in the rates, missing rate, ignored revision, stale cache, unreported amount break, editable audit
-  trail, failure hidden by the evening job) and requires the tests to fail each time.
+  trail, failure hidden by the evening job, exchange-rate calendar fooled by yields, discounting
+  one period off, coupons forgotten) and requires the tests to fail each time.
 
 ### Data
 

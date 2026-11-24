@@ -33,7 +33,7 @@ public class CommandLineTests : IClassFixture<TestDatabase>
     private async Task LoadSampleBook()
     {
         Assert.Equal(App.Ok, (await Run("db", "init")).Code);
-        await using (var clear = _db.DataSource.CreateCommand("TRUNCATE trade, rate, rate_revision, rate_fetch"))
+        await using (var clear = _db.DataSource.CreateCommand("TRUNCATE trade, rate, rate_revision, rate_fetch CASCADE"))
         {
             await clear.ExecuteNonQueryAsync();
         }

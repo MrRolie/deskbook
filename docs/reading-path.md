@@ -50,6 +50,14 @@ qui porte les règles.
    comme des nombres (1000 = 1000.00), et pour une référence inconnue nomme les opérations non confirmées de même
    économie. Les écarts sortent toujours dans le même ordre.
 8. **`Attribution.cs`** : la mention de la source et du caractère fictif, en un seul endroit.
+8a. **`Bonds/`** : le livre d'obligations. `Bond` (coupon semestriel, périodes comptées à rebours depuis
+   l'échéance pour garder les fins de mois), `YieldCurve` (rendements 2 à 10 ans, interpolation linéaire en
+   années, refus hors courbe), `BondPricer` (prix = somme des flux actualisés à (1 + y/2)^(k − 1 + w), w = part de
+   la période qui reste ; coupon couru actuel/actuel ; DV01 par réévaluation à ±1 pb), `BondBookCalculator` (valeur
+   = obligations au prix plein + trésorerie des opérations ; résultat = détenu + nouvelles opérations).
+   *Pourquoi `double` ici :* `decimal` n'a pas de puissance fractionnaire ; chaque valeur actualisée est arrondie à
+   10 décimales avant d'entrer dans une somme `decimal`. *Pourquoi la trésorerie dans la valeur :* acheter au juste
+   prix ne doit rien changer, et un coupon reçu compense la baisse du prix plein le jour du détachement.
 
 ## 2. Le monde extérieur : `src/Deskbook.Infrastructure/`
 
@@ -69,6 +77,9 @@ qui porte les règles.
     concaténation de valeurs. Les écritures à plusieurs lignes sont dans une transaction : un import en conflit ne
     laisse rien derrière lui. *Pourquoi pas d'ORM :* sept tables et des requêtes courtes ; le SQL visible est plus
     simple à expliquer et à vérifier.
+12b. **`Postgres/BondStore.cs`** : obligations, opérations sur obligations (ajout seulement, comme les autres) et
+    rendements, avec leur propre calendrier (`rate_fetch` filtré par groupe de séries, pour qu'une requête de
+    rendements ne fasse pas croire que des taux de change ont été demandés).
 12a. **`Postgres/ReconStore.cs`** et la fin de `schema.sql` : la piste d'audit du rapprochement (exécutions avec
     l'empreinte SHA-256 du fichier, écarts, notes de résolution). Un déclencheur (`deskbook_append_only`) refuse
     UPDATE et DELETE sur ces tables et sur `trade` : la règle « on n'efface pas » est tenue par la base, pas
@@ -179,6 +190,13 @@ No database, no network, no clock: the easiest part to test, so the part that ca
    and for an unknown reference names the unconfirmed trades with the same economics. Breaks always come out in
    the same order.
 8. **`Attribution.cs`**: the source attribution and the fictional notice, in one place.
+8a. **`Bonds/`**: the bond book. `Bond` (semi-annual coupon, periods counted back from maturity to keep month
+   ends), `YieldCurve` (2 to 10-year yields, linear interpolation in years, refusal outside the curve), `BondPricer`
+   (price = sum of cash flows discounted at (1 + y/2)^(k − 1 + w), w = share of the period left; accrued
+   actual/actual; DV01 by repricing at ±1 bp), `BondBookCalculator` (value = bonds at full price + the trades'
+   cash; P&L = held + new trades). *Why `double` here:* `decimal` has no fractional power; each present value is
+   rounded to 10 decimals before it enters a `decimal` sum. *Why cash is in the value:* buying at a fair price must
+   change nothing, and a coupon received offsets the full price's drop on the coupon date.
 
 ### 2. The outside world: `src/Deskbook.Infrastructure/`
 
@@ -195,6 +213,8 @@ No database, no network, no clock: the easiest part to test, so the part that ca
 12. **`Postgres/PostgresStore.cs`**: all the SQL, hand-written with parameters (`$1`, `$2`…), never values
     concatenated in. Multi-row writes run in one transaction: a conflicting import leaves nothing behind. *Why no
     ORM:* seven tables and short queries; visible SQL is simpler to explain and to check.
+12b. **`Postgres/BondStore.cs`**: bonds, bond trades (insert-only, like the others) and yields, with their own
+    calendar (`rate_fetch` filtered by series group, so a yields fetch never makes exchange rates look fetched).
 12a. **`Postgres/ReconStore.cs`** and the end of `schema.sql`: the reconciliation audit trail (runs with the file's
     SHA-256, breaks, resolution notes). A trigger (`deskbook_append_only`) refuses UPDATE and DELETE on those
     tables and on `trade`: the "nothing is erased" rule is held by the database, not only by the code.

@@ -31,6 +31,23 @@ internal sealed class SavedValetResponse(params string[] bodies) : HttpMessageHa
     }
 }
 
+/// <summary>Stands in for the Bank of Canada with one saved answer per series group, chosen by the request's URL.</summary>
+internal sealed class ValetByGroup(IReadOnlyDictionary<string, string> bodyByGroup) : HttpMessageHandler
+{
+    public static ValetByGroup Saved() => new(new Dictionary<string, string>
+    {
+        ["FX_RATES_DAILY"] = File.ReadAllText(Files.Fixture("valet-fx-2026-11.json")),
+        ["bond_yields_benchmark"] = File.ReadAllText(Files.Fixture("valet-bond-yields-2026-11.json")),
+    });
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var url = request.RequestUri!.ToString();
+        var group = bodyByGroup.Keys.Single(g => url.Contains($"/group/{g}/", StringComparison.Ordinal));
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(bodyByGroup[group]) });
+    }
+}
+
 /// <summary>A clock that only moves when a test moves it, so "today" and the cache's age are fixed in tests.</summary>
 internal sealed class FixedClock(DateTimeOffset now) : TimeProvider
 {

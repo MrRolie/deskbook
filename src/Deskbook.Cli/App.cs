@@ -2,6 +2,7 @@ using Deskbook.Core.Reporting;
 using System.Globalization;
 using System.Security.Cryptography;
 using Deskbook.Core;
+using Deskbook.Core.Bonds;
 using Deskbook.Core.Reconciliation;
 using Deskbook.Infrastructure.Postgres;
 using Deskbook.Infrastructure.Valet;
@@ -46,6 +47,10 @@ public static class App
           deskbook recon runs
           deskbook recon breaks [--run ID]
           deskbook recon resolve --break ID --by NAME --note TEXT
+          deskbook yields fetch --from yyyy-MM-dd [--to yyyy-MM-dd]
+          deskbook bonds import <bonds.csv>
+          deskbook bonds trades import <bond-trades.csv>
+          deskbook bonds book [--date yyyy-MM-dd]
           deskbook nightly --out DIR [--from yyyy-MM-dd] [--confirmations FILE]
 
         Add --json to any command for JSON output. The database comes from DESKBOOK_DB (a connection string).
@@ -136,6 +141,52 @@ public static class App
                 var dateText = cli.Option("date");
                 var book = await new BookService(services.Store).BuildAsync(dateText is null ? null : ParseDate(dateText));
                 return Write(stdout, cli.Json, BookReport.ToJson(book), BookReport.ToText(book));
+
+            case "yields fetch":
+            {
+                cli.AllowOnly("from", "to");
+                var from = ParseDate(cli.RequiredOption("from"));
+                var to = cli.Option("to") is { } toText ? ParseDate(toText) : DateOnly.FromDateTime(env.Clock.GetUtcNow().UtcDateTime);
+                if (to < from) throw new UsageException("--to is before --from");
+                var (observations, fromCache) = await new ValetClient(env.Http, env.CacheDirectory, env.Clock).FetchBenchmarkYieldsAsync(from, to);
+                var outcome = await services.Bonds.StoreYieldFetchAsync(observations);
+                var covered = observations.CoveredTo is null ? "none" : Output.Date(observations.CoveredTo.Value);
+                return Write(stdout, cli.Json,
+                    new { fetch_id = outcome.FetchId, from_cache = fromCache, days_with_yields = outcome.DaysWithRates, covered_to = observations.CoveredTo is null ? null : covered,
+                          yields_added = outcome.RatesAdded, yields_unchanged = outcome.RatesUnchanged, yields_revised = outcome.YieldRevisions, source = BondReport.Source },
+                    $"{outcome.DaysWithRates} day(s) with yields{(fromCache ? " (from cache)" : "")}, covered to {covered}: " +
+                    $"{outcome.RatesAdded} added, {outcome.RatesUnchanged} unchanged, {outcome.YieldRevisions} revised.");
+            }
+
+            case "bonds import":
+            {
+                cli.AllowOnly();
+                if (cli.Words.Count != 3) throw new UsageException("bonds import takes one file");
+                IReadOnlyList<Bond> bonds;
+                using (var reader = new StreamReader(cli.Words[2])) bonds = BondCsv.ParseBonds(reader);
+                var outcome = await services.Bonds.AddBondsAsync(bonds);
+                return Write(stdout, cli.Json, new { added = outcome.Added, already_present = outcome.AlreadyPresent },
+                    $"{outcome.Added} bond(s) added, {outcome.AlreadyPresent} already present.");
+            }
+
+            case "bonds trades":
+            {
+                cli.AllowOnly();
+                if (cli.Words.Count != 4 || cli.Words[2] != "import") throw new UsageException("usage: bonds trades import <file>");
+                IReadOnlyList<BondTrade> bondTrades;
+                using (var reader = new StreamReader(cli.Words[3])) bondTrades = BondCsv.ParseTrades(reader);
+                var outcome = await services.Bonds.AddBondTradesAsync(bondTrades);
+                return Write(stdout, cli.Json, new { added = outcome.Added, already_present = outcome.AlreadyPresent },
+                    $"{outcome.Added} bond trade(s) added, {outcome.AlreadyPresent} already present.");
+            }
+
+            case "bonds book":
+            {
+                cli.AllowOnly("date");
+                var bondDateText = cli.Option("date");
+                var bondBook = await new BondBookService(services.Bonds).BuildAsync(bondDateText is null ? null : ParseDate(bondDateText));
+                return Write(stdout, cli.Json, BondReport.ToJson(bondBook), BondReport.ToText(bondBook));
+            }
 
             case "nightly":
                 return await NightlyAsync(cli, stdout, services);
@@ -238,9 +289,9 @@ public static class App
     }
 
     /// <summary>
-    /// The evening job in one command: make sure the schema exists, fetch the last two weeks of rates (so late
-    /// revisions are caught), write the book of the latest published day to OUT/book-DATE.json, and reconcile the
-    /// confirmations file if one is given. A failed step does not stop the next one. Exit code: 1 if any step
+    /// The evening job in one command: make sure the schema exists, fetch the last two weeks of exchange rates and
+    /// benchmark yields (so late revisions are caught), write the FX book and the bond book of their latest published
+    /// days to OUT/book-DATE.json and OUT/bond-book-DATE.json, and reconcile the confirmations file if one is given. A failed step does not stop the next one. Exit code: 1 if any step
     /// failed, else 3 if the book was refused, else 4 if reconciliation found breaks, else 0. The summary goes to
     /// standard output and to OUT/last-run.json.
     /// </summary>
@@ -274,6 +325,18 @@ public static class App
 
         try
         {
+            var (yields, fromCache) = await new ValetClient(env.Http, env.CacheDirectory, env.Clock).FetchBenchmarkYieldsAsync(from, today);
+            var outcome = await services.Bonds.StoreYieldFetchAsync(yields);
+            steps.Add(new { step = "yields", status = "ok", from_cache = fromCache, covered_to = yields.CoveredTo is null ? null : Output.Date(yields.CoveredTo.Value), yields_added = outcome.RatesAdded, revisions = outcome.YieldRevisions });
+        }
+        catch (Exception e) when (e is not UsageException)
+        {
+            failed = true;
+            steps.Add(new { step = "yields", status = "failure", message = e.Message });
+        }
+
+        try
+        {
             var book = await new BookService(services.Store).BuildAsync(null);
             var path = Path.Combine(outDirectory, $"book-{Output.Date(book.Date)}.json");
             await File.WriteAllTextAsync(path, Output.ToJson(BookReport.ToJson(book)) + Environment.NewLine);
@@ -288,6 +351,24 @@ public static class App
         {
             failed = true;
             steps.Add(new { step = "book", status = "failure", message = e.Message });
+        }
+
+        try
+        {
+            var bondBook = await new BondBookService(services.Bonds).BuildAsync(null);
+            var path = Path.Combine(outDirectory, $"bond-book-{Output.Date(bondBook.Date)}.json");
+            await File.WriteAllTextAsync(path, Output.ToJson(BondReport.ToJson(bondBook)) + Environment.NewLine);
+            steps.Add(new { step = "bond book", status = "ok", book_date = Output.Date(bondBook.Date), file = path, pnl_cad = Output.Cents(bondBook.TotalPnlCad), dv01_cad = Output.Cents(bondBook.Dv01Cad) });
+        }
+        catch (BookRefusedException e)
+        {
+            refused = true;
+            steps.Add(new { step = "bond book", status = "refused", reasons = e.Reasons });
+        }
+        catch (Exception e)
+        {
+            failed = true;
+            steps.Add(new { step = "bond book", status = "failure", message = e.Message });
         }
 
         if (cli.Option("confirmations") is { } confirmationsPath)
@@ -397,6 +478,8 @@ public static class App
         public PostgresStore Store => new(DataSource());
 
         public ReconStore Recon => new(DataSource());
+
+        public BondStore Bonds => new(DataSource());
 
         private NpgsqlDataSource DataSource()
         {
