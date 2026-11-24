@@ -1,0 +1,13 @@
+# FICTIONAL: counterparty confirmations for the Demo FX Desk's invented trades, stated from the desk's side.
+# Four breaks are planted on purpose: FICT-0003 confirmed at a different CAD amount, FICT-0006 never confirmed,
+# FICT-0007 confirmed with the next day's date, and CNF-0109 quoting a trade id the desk never booked
+# (its economics match nothing the desk did).
+confirmation_id,trade_id,trade_date,counterparty,desk_bought_currency,desk_bought_amount,desk_sold_currency,desk_sold_amount
+CNF-0101,FICT-0001,2026-11-03,Northwind Pension Fund (fictional),USD,1000000,CAD,1399000
+CNF-0102,FICT-0002,2026-11-05,Harbour Exporters Inc. (fictional),CAD,784600,EUR,500000
+CNF-0103,FICT-0003,2026-11-06,Maple Leaf Asset Mgmt (fictional),GBP,250000,CAD,471500
+CNF-0104,FICT-0004,2026-11-11,Northwind Pension Fund (fictional),JPY,100000000,USD,626000
+CNF-0105,FICT-0005,2026-11-13,Alpine Treasury AG (fictional),CHF,300000,EUR,324000
+CNF-0107,FICT-0007,2026-11-21,Maple Leaf Asset Mgmt (fictional),CAD,469500,GBP,250000
+CNF-0108,FICT-0008,2026-11-23,Alpine Treasury AG (fictional),USD,400000,CAD,574500
+CNF-0109,FICT-0010,2026-11-23,Harbour Exporters Inc. (fictional),CAD,143000,USD,100000
