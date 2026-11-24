@@ -56,11 +56,34 @@ Une révision de taux (`n revised` à la récupération) n'est pas une erreur : 
 l'adresse du réseau privé de la machine). La page ne récupère aucun taux et ne modifie rien. PostgreSQL reste sans
 port publié.
 
-## Une tâche de nuit
+## Déployer
 
-Rien n'est installé comme service. Pour une exécution automatique, une minuterie systemd ou une entrée cron lance
-les trois commandes ci-dessus après 17 h, garde la sortie JSON, et alerte sur tout code non nul. Une version de
-production construirait une image d'exécution plus légère que le SDK ; elle n'est pas faite ici.
+`Dockerfile` construit une image avec le SDK et la fait tourner sur l'image d'exécution ASP.NET (sans compilateur,
+utilisateur `app`). `deploy/compose.yaml` assemble PostgreSQL (aucun port publié), la page et la tâche du soir :
+
+```
+cp deploy/env.example deploy/.env        # mot de passe, adresse de la page, utilisateur
+mkdir -p deploy/data                     # sinon Docker le créerait au nom de root : compose refuse
+docker compose -f deploy/compose.yaml up -d --build
+docker compose -f deploy/compose.yaml run --rm nightly
+```
+
+Tant que la tâche n'a pas tourné une fois, la page répond 503 « Database unavailable » : la base n'a pas encore de
+tables (`deskbook nightly` les crée).
+
+## La tâche du soir
+
+`deskbook nightly --out DIR [--from AAAA-MM-JJ] [--confirmations FICHIER]` fait tout le soir en une commande :
+schéma, taux des 14 derniers jours (pour attraper les révisions), livre du dernier jour publié dans
+`DIR/book-<date>.json`, rapprochement si un relevé est donné, résumé dans `DIR/last-run.json`. Une étape qui
+échoue n'empêche pas la suivante : si Valet est en panne, le livre est quand même écrit avec les taux stockés.
+Code : 1 si une étape a échoué, sinon 3 si le livre est refusé, sinon 4 s'il y a des écarts, sinon 0.
+
+`deploy/systemd/` contient une minuterie utilisateur (jours de semaine, 17 h 45 heure de Montréal) et le service
+qu'elle lance ; tout code non nul déclenche `deskbook-nightly-failed.service`, qui écrit une erreur au journal et
+laisse le fichier `~/.local/state/deskbook/nightly-FAILED`. Les fichiers ne sont pas installés par le dépôt :
+l'installation est décrite en tête de `deskbook-nightly.service`. Après une alerte : `journalctl --user -u
+deskbook-nightly`, lire `last-run.json`, traiter selon le tableau ci-dessus, puis supprimer le fichier marqueur.
 
 ---
 
@@ -118,8 +141,31 @@ rerun books use the new one.
 `scripts/dev.sh web <address>:<port>` serves the read-only page on that address only (for example the machine's
 private network address). The page fetches no rates and changes nothing. PostgreSQL stays unpublished.
 
-### A nightly job
+### Deploy
 
-Nothing is installed as a service. For automatic runs, a systemd timer or cron entry runs the three commands above
-after 17:00, keeps the JSON output, and alerts on any non-zero code. A production version would build a runtime
-image lighter than the SDK; that is not done here.
+`Dockerfile` builds an image with the SDK and runs it on the ASP.NET runtime image (no compiler, user `app`).
+`deploy/compose.yaml` brings together PostgreSQL (no published port), the page and the evening job:
+
+```
+cp deploy/env.example deploy/.env        # password, page address, user
+mkdir -p deploy/data                     # otherwise Docker would create it as root: compose refuses
+docker compose -f deploy/compose.yaml up -d --build
+docker compose -f deploy/compose.yaml run --rm nightly
+```
+
+Until the job has run once, the page answers 503 "Database unavailable": the database has no tables yet
+(`deskbook nightly` creates them).
+
+### The evening job
+
+`deskbook nightly --out DIR [--from yyyy-MM-dd] [--confirmations FILE]` does the whole evening in one command:
+schema, the last 14 days of rates (to catch revisions), the latest published day's book in `DIR/book-<date>.json`,
+reconciliation if a statement is given, a summary in `DIR/last-run.json`. A failed step does not stop the next one:
+if Valet is down, the book is still written from the stored rates. Code: 1 if any step failed, else 3 if the book was
+refused, else 4 if there are breaks, else 0.
+
+`deploy/systemd/` holds a user timer (weekdays, 17:45 Montréal time) and the service it starts; any non-zero code
+triggers `deskbook-nightly-failed.service`, which writes an error to the journal and leaves the file
+`~/.local/state/deskbook/nightly-FAILED`. The repository does not install them: installing is described at the top
+of `deskbook-nightly.service`. After an alert: `journalctl --user -u deskbook-nightly`, read `last-run.json`, act on
+the table above, then delete the marker file.

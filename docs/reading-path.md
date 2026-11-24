@@ -117,6 +117,18 @@ qui porte les règles.
 Rien d'installé sur la machine : le SDK et PostgreSQL tournent dans leurs images officielles, épinglées par
 empreinte, sous l'utilisateur courant pour que les fichiers produits lui appartiennent.
 
+## 6. Le déploiement : `Dockerfile`, `deploy/`
+
+- **`Dockerfile`** : deux étapes. Le SDK compile et publie le CLI et la page ; l'image d'exécution ASP.NET, sans
+  compilateur, les fait tourner sous l'utilisateur non privilégié `app`. *Pourquoi deux étapes :* l'image livrée
+  ne contient que ce qui tourne. `.dockerignore` tient le reste hors de la construction.
+- **`deploy/compose.yaml`** : PostgreSQL sans port publié, la page sur une adresse donnée, la tâche du soir. Les
+  secrets viennent de `deploy/.env`, jamais versionné.
+- **`App.NightlyAsync`** (dans `App.cs`) : la soirée en une commande. Chaque étape est dans son propre `try` pour
+  qu'une panne de Valet n'empêche pas d'écrire le livre avec les taux déjà stockés ; le code de sortie donne la
+  priorité à la panne (1), puis au refus (3), puis aux écarts (4).
+- **`deploy/systemd/`** : la minuterie, le service, et le service d'alerte lancé par `OnFailure=`.
+
 ---
 
 ## English
@@ -226,3 +238,15 @@ No database, no network, no clock: the easiest part to test, so the part that ca
 
 Nothing installed on the machine: the SDK and PostgreSQL run in their official images, pinned by digest, as the
 calling user so the files they produce belong to that user.
+
+### 6. Deployment: `Dockerfile`, `deploy/`
+
+- **`Dockerfile`**: two stages. The SDK compiles and publishes the CLI and the page; the ASP.NET runtime image, with
+  no compiler, runs them as the unprivileged `app` user. *Why two stages:* the shipped image holds only what runs.
+  `.dockerignore` keeps everything else out of the build.
+- **`deploy/compose.yaml`**: PostgreSQL with no published port, the page on a given address, the evening job.
+  Secrets come from `deploy/.env`, never committed.
+- **`App.NightlyAsync`** (in `App.cs`): the evening in one command. Each step has its own `try` so a Valet outage
+  does not stop the book being written from the rates already stored; the exit code ranks a failure (1) above a
+  refusal (3) above breaks (4).
+- **`deploy/systemd/`**: the timer, the service, and the alert service started by `OnFailure=`.

@@ -1,0 +1,12 @@
+# The evening job, as a systemd user service. Install (not done by this repository):
+#   cp deploy/systemd/deskbook-nightly.* deploy/systemd/deskbook-nightly-failed.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now deskbook-nightly.timer
+# It assumes the repository lives at ~/deskbook; change WorkingDirectory if not.
+[Unit]
+Description=deskbook evening job (fictional desk): fetch rates, write the book, reconcile
+OnFailure=deskbook-nightly-failed.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/deskbook
+ExecStart=/usr/bin/env docker compose -f deploy/compose.yaml run --rm nightly

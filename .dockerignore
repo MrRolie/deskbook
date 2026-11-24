@@ -1,0 +1,10 @@
+# Only nuget.config, Directory.Build.props and src/ are copied; this keeps everything else out of the build context.
+**/bin/
+**/obj/
+.git/
+.dev/
+.worktrees/
+data/
+deploy/
+tests/
+*.md

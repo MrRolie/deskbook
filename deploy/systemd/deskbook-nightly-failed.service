@@ -1,0 +1,9 @@
+# Runs when the evening job exits non-zero (1 failure, 3 book refused, 4 reconciliation breaks): writes an error to
+# the journal and leaves a marker file that stays until someone removes it after looking.
+[Unit]
+Description=Report a failed deskbook evening job
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-cat -t deskbook -p err /bin/echo "deskbook evening job failed: journalctl --user -u deskbook-nightly"
+ExecStart=/bin/sh -c 'mkdir -p "$HOME/.local/state/deskbook" && date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ > "$HOME/.local/state/deskbook/nightly-FAILED"'

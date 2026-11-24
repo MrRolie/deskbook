@@ -1,0 +1,60 @@
+# deskbook as a small deployment: PostgreSQL, the read-only page, and the evening job.
+#   cp deploy/env.example deploy/.env      then set a password and the address to publish the page on
+#   mkdir -p deploy/data                    where the evening job writes, owned by you
+#   docker compose -f deploy/compose.yaml up -d --build          database and page
+#   docker compose -f deploy/compose.yaml run --rm nightly       the evening job, once (systemd runs it daily)
+# PostgreSQL publishes no port: only the page and the job reach it, on the stack's own network.
+name: deskbook
+
+services:
+  db:
+    image: postgres@sha256:f5cbc081c25690710f3fc6f4c61a7565382bae01ca0d0f2028a53d7926b85a20
+    environment:
+      POSTGRES_USER: deskbook
+      POSTGRES_DB: deskbook
+      POSTGRES_PASSWORD: ${DESKBOOK_DB_PASSWORD:?set DESKBOOK_DB_PASSWORD in deploy/.env}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "deskbook", "-d", "deskbook"]
+      interval: 5s
+      retries: 12
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: deskbook:local
+    entrypoint: ["dotnet", "/app/web/Deskbook.Web.dll"]
+    command: []
+    environment:
+      DESKBOOK_DB: Host=db;Username=deskbook;Password=${DESKBOOK_DB_PASSWORD};Database=deskbook
+    ports:
+      - "${DESKBOOK_WEB_BIND:?set DESKBOOK_WEB_BIND in deploy/.env, for example 100.64.0.1:8820}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nightly:
+    image: deskbook:local
+    profiles: ["job"]
+    user: "${DESKBOOK_UID:-1000}:${DESKBOOK_GID:-1000}"
+    command: ["nightly", "--out", "/data/out"]
+    environment:
+      DESKBOOK_DB: Host=db;Username=deskbook;Password=${DESKBOOK_DB_PASSWORD};Database=deskbook
+      DESKBOOK_CACHE: /data/cache
+    volumes:
+      # The folder must exist (mkdir -p deploy/data): Docker would otherwise create it owned by root.
+      - type: bind
+        source: ${DESKBOOK_DATA:-./data}
+        target: /data
+        bind:
+          create_host_path: false
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

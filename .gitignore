@@ -6,3 +6,5 @@ data/cache/
 .worktrees/
 .DS_Store
 .dev/
+deploy/.env
+deploy/data/
