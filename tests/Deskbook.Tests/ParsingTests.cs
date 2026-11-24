@@ -65,7 +65,7 @@ public class ParsingTests
         var error = Assert.Throws<FormatException>(() => TradeCsv.Parse(new StringReader(text)));
         Assert.Contains("line 3:", error.Message);
         Assert.Contains("line 4:", error.Message);
-        Assert.Contains("line 5: trade id 'T1' appears twice", error.Message);
+        Assert.Contains("line 5: id 'T1' appears twice", error.Message);
         Assert.Contains("line 6: quoted fields", error.Message);
         Assert.DoesNotContain("line 2:", error.Message);
     }
