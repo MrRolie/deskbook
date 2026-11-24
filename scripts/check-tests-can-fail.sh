@@ -17,6 +17,7 @@ breaks=(
   "src/Deskbook.Infrastructure/Postgres/PostgresStore.cs@else if (old == rate)@else if (old >= 0)@a revised rate is silently ignored"
   "src/Deskbook.Core/Reconciliation/Reconciler.cs@Break? AmountField(string name, decimal desk, decimal counterparty) => desk == counterparty@Break? AmountField(string name, decimal desk, decimal counterparty) => desk >= 0 || desk == counterparty@a confirmed amount that differs is not reported"
   "src/Deskbook.Infrastructure/Postgres/schema.sql@RAISE EXCEPTION '% rows are never changed or deleted (append-only)', TG_TABLE_NAME;@RETURN NEW;@the audit trail can be edited"
+  "src/Deskbook.Cli/App.cs@var code = failed ? Failure : refused ? Refused : breaks ? Breaks : Ok;@var code = refused ? Refused : failed ? Failure : breaks ? Breaks : Ok;@the evening job hides a failure behind a refusal"
   "src/Deskbook.Infrastructure/Valet/ValetClient.cs@if (reachesTo || now - cachedAt < MinimumRefetchInterval)@if (cachedDays.Count >= 0 || reachesTo)@a cached answer from before publication is reused all day"
 )
 

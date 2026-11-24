@@ -46,6 +46,7 @@ public static class App
           deskbook recon runs
           deskbook recon breaks [--run ID]
           deskbook recon resolve --break ID --by NAME --note TEXT
+          deskbook nightly --out DIR [--from yyyy-MM-dd] [--confirmations FILE]
 
         Add --json to any command for JSON output. The database comes from DESKBOOK_DB (a connection string).
         Exit codes: 0 done, 1 failure, 2 usage error, 3 book refused (data missing), 4 reconciliation found breaks.
@@ -135,6 +136,9 @@ public static class App
                 var dateText = cli.Option("date");
                 var book = await new BookService(services.Store).BuildAsync(dateText is null ? null : ParseDate(dateText));
                 return Write(stdout, cli.Json, BookReport.ToJson(book), BookReport.ToText(book));
+
+            case "nightly":
+                return await NightlyAsync(cli, stdout, services);
 
             case "recon run":
                 return await ReconRunAsync(cli, stdout, services);
@@ -231,6 +235,86 @@ public static class App
             $"Reconciliation #{runId}: {result.Matched} of {result.TradesCompared} trade(s) matched, {result.Breaks.Count} break(s)." +
             string.Concat(stored.Select(b => Environment.NewLine + "  " + ReconReport.Line(b.Id, b.Break, b.Resolved))));
         return result.Breaks.Count == 0 ? Ok : Breaks;
+    }
+
+    /// <summary>
+    /// The evening job in one command: make sure the schema exists, fetch the last two weeks of rates (so late
+    /// revisions are caught), write the book of the latest published day to OUT/book-DATE.json, and reconcile the
+    /// confirmations file if one is given. A failed step does not stop the next one. Exit code: 1 if any step
+    /// failed, else 3 if the book was refused, else 4 if reconciliation found breaks, else 0. The summary goes to
+    /// standard output and to OUT/last-run.json.
+    /// </summary>
+    private static async Task<int> NightlyAsync(CliArgs cli, TextWriter stdout, Services services)
+    {
+        var env = services.Env;
+        cli.AllowOnly("out", "from", "confirmations");
+        var outDirectory = cli.RequiredOption("out");
+        var today = DateOnly.FromDateTime(env.Clock.GetUtcNow().UtcDateTime);
+        var from = cli.Option("from") is { } fromText ? ParseDate(fromText) : today.AddDays(-14);
+        var steps = new List<object>();
+        var failed = false;
+        var refused = false;
+        var breaks = false;
+
+        Directory.CreateDirectory(outDirectory);
+        await services.Store.InitializeAsync();
+
+        try
+        {
+            var client = new ValetClient(env.Http, env.CacheDirectory, env.Clock);
+            var (observations, fromCache) = await client.FetchDailyFxAsync(from, today);
+            var outcome = await services.Store.StoreFetchAsync(observations);
+            steps.Add(new { step = "rates", status = "ok", from_cache = fromCache, covered_to = observations.CoveredTo is null ? null : Output.Date(observations.CoveredTo.Value), rates_added = outcome.RatesAdded, revisions = outcome.Revisions.Count });
+        }
+        catch (Exception e) when (e is not UsageException)
+        {
+            failed = true;
+            steps.Add(new { step = "rates", status = "failure", message = e.Message });
+        }
+
+        try
+        {
+            var book = await new BookService(services.Store).BuildAsync(null);
+            var path = Path.Combine(outDirectory, $"book-{Output.Date(book.Date)}.json");
+            await File.WriteAllTextAsync(path, Output.ToJson(BookReport.ToJson(book)) + Environment.NewLine);
+            steps.Add(new { step = "book", status = "ok", book_date = Output.Date(book.Date), file = path, pnl_cad = Output.Cents(book.TotalPnlCad) });
+        }
+        catch (BookRefusedException e)
+        {
+            refused = true;
+            steps.Add(new { step = "book", status = "refused", reasons = e.Reasons });
+        }
+        catch (Exception e)
+        {
+            failed = true;
+            steps.Add(new { step = "book", status = "failure", message = e.Message });
+        }
+
+        if (cli.Option("confirmations") is { } confirmationsPath)
+        {
+            try
+            {
+                var bytes = await File.ReadAllBytesAsync(confirmationsPath);
+                IReadOnlyList<Confirmation> confirmations;
+                using (var reader = new StreamReader(new MemoryStream(bytes))) confirmations = ConfirmationCsv.Parse(reader);
+                var result = Reconciler.Reconcile(await services.Store.ListTradesAsync(), confirmations);
+                var runId = await services.Recon.RecordRunAsync(result, Path.GetFileName(confirmationsPath),
+                    Convert.ToHexStringLower(SHA256.HashData(bytes)), env.Clock.GetUtcNow());
+                breaks = result.Breaks.Count > 0;
+                steps.Add(new { step = "recon", status = breaks ? "breaks" : "ok", run_id = runId, matched = result.Matched, breaks = result.Breaks.Count });
+            }
+            catch (Exception e)
+            {
+                failed = true;
+                steps.Add(new { step = "recon", status = "failure", message = e.Message });
+            }
+        }
+
+        var code = failed ? Failure : refused ? Refused : breaks ? Breaks : Ok;
+        var summary = Output.ToJson(new { fictional = true, run_at = Utc(env.Clock.GetUtcNow()), exit_code = code, steps });
+        await File.WriteAllTextAsync(Path.Combine(outDirectory, "last-run.json"), summary + Environment.NewLine);
+        stdout.WriteLine(summary);
+        return code;
     }
 
     private static async Task<int> ReconBreaksAsync(CliArgs cli, TextWriter stdout, Services services)

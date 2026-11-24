@@ -37,3 +37,10 @@ internal sealed class FixedClock(DateTimeOffset now) : TimeProvider
     public DateTimeOffset Now { get; set; } = now;
     public override DateTimeOffset GetUtcNow() => Now;
 }
+
+/// <summary>Stands in for the Bank of Canada when it is down: every request gets 503.</summary>
+internal sealed class UnavailableValet : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+        Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+}
