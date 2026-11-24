@@ -44,7 +44,7 @@ public sealed class RateCalendar
     {
         if (!IsFetched(date))
         {
-            throw new BookRefusedException($"rates for {date:yyyy-MM-dd} were never fetched; run 'deskbook rates fetch'");
+            throw new BookRefusedException($"rates for {date:yyyy-MM-dd} were never fetched; run 'deskbook rates fetch' (or 'yields fetch' for bonds)");
         }
         if (!_published.Contains(date))
         {

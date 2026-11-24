@@ -27,8 +27,12 @@ public sealed class ValetClient
         _clock = clock;
     }
 
-    public static string UrlFor(DateOnly from, DateOnly to) =>
-        $"{BaseUrl}/observations/group/{DailyFxGroup}/json" +
+    public const string BenchmarkYieldGroup = "bond_yields_benchmark";
+
+    public static string UrlFor(DateOnly from, DateOnly to) => UrlFor(DailyFxGroup, from, to);
+
+    public static string UrlFor(string group, DateOnly from, DateOnly to) =>
+        $"{BaseUrl}/observations/group/{group}/json" +
         $"?start_date={from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}" +
         $"&end_date={to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
 
@@ -36,21 +40,38 @@ public sealed class ValetClient
     public async Task<(ValetObservations Observations, bool FromCache)> FetchDailyFxAsync(
         DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
     {
+        var (days, url, fetchedAt, fromCache) = await FetchAsync(DailyFxGroup, from, to,
+            json => InRange(ValetParser.ParseDays(json), d => d.Date, from, to), d => d.Date, cancellationToken);
+        return (new ValetObservations(DailyFxGroup, from, to, url, fetchedAt, days), fromCache);
+    }
+
+    /// <returns>The benchmark yield curves of each day in the range, oldest first, and whether they came from the cache.</returns>
+    public async Task<(ValetYieldObservations Observations, bool FromCache)> FetchBenchmarkYieldsAsync(
+        DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
+    {
+        var (days, url, fetchedAt, fromCache) = await FetchAsync(BenchmarkYieldGroup, from, to,
+            json => InRange(ValetParser.ParseYieldDays(json), d => d.Date, from, to), d => d.Date, cancellationToken);
+        return (new ValetYieldObservations(from, to, url, fetchedAt, days), fromCache);
+    }
+
+    private async Task<(List<T> Days, string Url, DateTimeOffset FetchedAt, bool FromCache)> FetchAsync<T>(
+        string group, DateOnly from, DateOnly to, Func<string, List<T>> parse, Func<T, DateOnly> dateOf, CancellationToken cancellationToken)
+    {
         if (to < from) throw new ArgumentException("The end date is before the start date.");
 
-        var url = UrlFor(from, to);
+        var url = UrlFor(group, from, to);
         var now = _clock.GetUtcNow();
-        var bodyPath = Path.Combine(_cacheDirectory, $"{DailyFxGroup}_{from:yyyy-MM-dd}_{to:yyyy-MM-dd}.json");
+        var bodyPath = Path.Combine(_cacheDirectory, $"{group}_{from:yyyy-MM-dd}_{to:yyyy-MM-dd}.json");
         var stampPath = bodyPath + ".fetched-at";
 
         if (File.Exists(bodyPath) && File.Exists(stampPath))
         {
             var cachedAt = DateTimeOffset.Parse(await File.ReadAllTextAsync(stampPath, cancellationToken), CultureInfo.InvariantCulture);
-            var cachedDays = InRange(ValetParser.ParseDays(await File.ReadAllTextAsync(bodyPath, cancellationToken)), from, to);
-            var reachesTo = cachedDays.Count > 0 && cachedDays[^1].Date == to;
+            var cachedDays = parse(await File.ReadAllTextAsync(bodyPath, cancellationToken));
+            var reachesTo = cachedDays.Count > 0 && dateOf(cachedDays[^1]) == to;
             if (reachesTo || now - cachedAt < MinimumRefetchInterval)
             {
-                return (new ValetObservations(DailyFxGroup, from, to, url, cachedAt, cachedDays), true);
+                return (cachedDays, url, cachedAt, true);
             }
         }
 
@@ -62,14 +83,14 @@ public sealed class ValetClient
                 "wait before trying again (see docs/runbook.md)");
         }
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        var days = InRange(ValetParser.ParseDays(json), from, to); // throws on a malformed body, before anything is cached
+        var days = parse(json); // throws on a malformed body, before anything is cached
 
         Directory.CreateDirectory(_cacheDirectory);
         await File.WriteAllTextAsync(bodyPath, json, cancellationToken);
         await File.WriteAllTextAsync(stampPath, now.ToString("O", CultureInfo.InvariantCulture), cancellationToken);
-        return (new ValetObservations(DailyFxGroup, from, to, url, now, days), false);
+        return (days, url, now, false);
     }
 
-    private static List<RateSet> InRange(IEnumerable<RateSet> days, DateOnly from, DateOnly to) =>
-        days.Where(d => d.Date >= from && d.Date <= to).ToList();
+    private static List<T> InRange<T>(IEnumerable<T> days, Func<T, DateOnly> dateOf, DateOnly from, DateOnly to) =>
+        days.Where(d => dateOf(d) >= from && dateOf(d) <= to).ToList();
 }

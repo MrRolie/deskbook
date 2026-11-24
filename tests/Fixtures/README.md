@@ -8,3 +8,10 @@
 Canada does not endorse this project. Terms: https://www.bankofcanada.ca/terms/ (see `docs/data-licences.md`).
 
 `trades-fictional.csv` in `samples/` is the matching set of invented trades.
+
+`valet-bond-yields-2026-11.json`: benchmark bond yields from the Bank of Canada, Valet API, group
+`bond_yields_benchmark`, fetched 2026-11-24 (UTC). **Changed from the original:** trimmed to the 2, 3, 5, 7 and
+10-year series (the long-term and real-return series are dropped) and to 2026-11-02 to 2026-11-20, the last day
+published at the fetch; values unchanged. The Bank of Canada does not endorse this project.
+
+`bonds-fictional.csv` and `bond-trades-fictional.csv` in `samples/` are the matching invented bonds and trades.

@@ -1,0 +1,9 @@
+# FICTIONAL bond trades of the Demo FX Desk. Face in CAD: positive = bought, negative = sold (FB-0003 opens a
+# short position). Clean prices are per 100 of face, set one cent of price better than this project's model price
+# on the trade date, so each trade starts with a small gain.
+id,trade_date,bond_id,face,clean_price,counterparty
+FB-0001,2026-11-03,FICT-CAN-2031-06,10000000,99.096,Northwind Pension Fund (fictional)
+FB-0002,2026-11-05,FICT-CAN-2029-09,5000000,98.666,Maple Leaf Asset Mgmt (fictional)
+FB-0003,2026-11-12,FICT-CAN-2035-06,-4000000,100.388,Alpine Treasury AG (fictional)
+FB-0004,2026-11-18,FICT-CAN-2033-12,7000000,99.297,Harbour Exporters Inc. (fictional)
+FB-0005,2026-11-20,FICT-CAN-2031-06,-3000000,99.460,Northwind Pension Fund (fictional)

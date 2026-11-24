@@ -1,0 +1,7 @@
+# FICTIONAL bonds: invented issues shaped like Government of Canada bonds (fixed coupon, paid every six months,
+# principal at maturity). They do not exist. Only the benchmark yields used to value them are real.
+id,description,coupon_percent,maturity
+FICT-CAN-2029-09,Fictional federal 2.75% bond due 2029-09-01,2.75,2029-09-01
+FICT-CAN-2031-06,Fictional federal 3.25% bond due 2031-06-01,3.25,2031-06-01
+FICT-CAN-2033-12,Fictional federal 3.50% bond due 2033-12-01,3.50,2033-12-01
+FICT-CAN-2035-06,Fictional federal 3.75% bond due 2035-06-01,3.75,2035-06-01

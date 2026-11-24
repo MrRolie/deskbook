@@ -6,7 +6,8 @@ public static class Attribution
     public const string Desk = "Demo FX Desk (fictional)";
 
     public const string Fictional =
-        "The desk, its counterparties, trades and positions are invented. Only the exchange rates are real.";
+        "The desk, its counterparties, bonds, trades and positions are invented. Only the market data is real: " +
+        "Bank of Canada exchange rates and benchmark bond yields.";
 
     public const string Source =
         "Exchange rates: Bank of Canada, Valet API (https://www.bankofcanada.ca/valet). Indicative rates. " +

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Deskbook.Core;
+using Deskbook.Core.Bonds;
 
 namespace Deskbook.Infrastructure.Valet;
 
@@ -35,6 +36,31 @@ public static class ValetParser
         }
 
         // The API's order depends on the query; never rely on it.
+        return days.OrderBy(d => d.Date).ToList();
+    }
+
+    /// <summary>
+    /// Reads a "bond_yields_benchmark" answer: series BD.CDN.2YR.DQ.YLD to BD.CDN.10YR.DQ.YLD, yields in percent.
+    /// The long-term and real-return series are ignored (their terms are not stated as a number of years).
+    /// </summary>
+    public static IReadOnlyList<YieldCurve> ParseYieldDays(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var days = new List<YieldCurve>();
+        foreach (var observation in document.RootElement.GetProperty("observations").EnumerateArray())
+        {
+            var date = DateOnly.ParseExact(observation.GetProperty("d").GetString()!, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var points = new Dictionary<int, decimal>();
+            foreach (var tenor in YieldCurve.Tenors)
+            {
+                if (!observation.TryGetProperty($"BD.CDN.{tenor}YR.DQ.YLD", out var series)) continue;
+                if (!series.TryGetProperty("v", out var value) || value.ValueKind != JsonValueKind.String) continue;
+                var text = value.GetString();
+                if (string.IsNullOrWhiteSpace(text)) continue;
+                points[tenor] = decimal.Parse(text, NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+            }
+            if (points.Count > 0) days.Add(new YieldCurve(date, points));
+        }
         return days.OrderBy(d => d.Date).ToList();
     }
 
