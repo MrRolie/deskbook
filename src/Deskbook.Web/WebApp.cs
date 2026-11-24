@@ -17,8 +17,8 @@ namespace Deskbook.Web;
 /// </summary>
 public static class WebApp
 {
-    /// <summary>How many published days the P&amp;L ribbon shows, ending at the book's day.</summary>
-    private const int RibbonDays = 20;
+    /// <summary>How many published days the P&amp;L history shows.</summary>
+    private const int PnlDays = 20;
 
     public static WebApplication Build(string[] args, string connectionString)
     {
@@ -48,7 +48,7 @@ public static class WebApp
                 {
                     context.Response.ContentType = "text/html; charset=utf-8";
                     await context.Response.WriteAsync(Layout.Page("Database unavailable", Tab.Fx, null,
-                        Views.Message("Database unavailable", message), Array.Empty<string>(), null, Attribution.Source));
+                        Views.Message("Database unavailable", message), Attribution.Source));
                 }
             }
         });
@@ -59,20 +59,20 @@ public static class WebApp
             var nav = new Nav("/", currency?.Code);
             var calendar = await store.LoadCalendarAsync();
             var day = bookDate ?? calendar.LatestPublished;
-            var ribbon = day is null ? new List<RibbonDay>() : await FxRibbonAsync(store, calendar, day.Value);
+            var history = day is null ? new List<PnlDay>() : await FxHistoryAsync(store, calendar, day.Value);
             var currencies = day is null ? Array.Empty<string>() : await CurrenciesAsync(store, day.Value);
             try
             {
                 var book = await new BookService(store).BuildAsync(bookDate);
                 var (translation, untranslated) = await TranslateAsync(store, currency, book.Date, book.PreviousDate, book.ValueCad, book.PreviousValueCad,
                     new[] { ("new_trades", book.NewTradesPnlCad), ("revaluation", book.RevaluationPnlCad) });
-                return Html(Layout.Page($"FX book, {Pages.Html.LongDate(book.Date)}", Tab.Fx, book.Date,
-                    Views.FxBook(book, ribbon, translation, nav, calendar) + untranslated, currencies, currency?.Code, Attribution.Source));
+                return Html(Layout.Page($"FX book, {Pages.Html.LongDate(book.Date)}", Tab.Fx, currency?.Code,
+                    Views.FxBook(book, history, translation, nav, calendar, currencies, untranslated), Attribution.Source));
             }
             catch (BookRefusedException refusal)
             {
-                return Html(Layout.Page("No book", Tab.Fx, bookDate, Views.Refused(day, refusal.Reasons, ribbon, nav),
-                    currencies, currency?.Code, Attribution.Source), 409);
+                return Html(Layout.Page("No book", Tab.Fx, currency?.Code,
+                    Views.Refused("FX book", day, refusal.Reasons, history, nav, calendar, currencies), Attribution.Source), 409);
             }
         });
 
@@ -82,7 +82,7 @@ public static class WebApp
             var nav = new Nav("/bonds", currency?.Code);
             var calendar = await bonds.LoadYieldCalendarAsync();
             var day = bookDate ?? calendar.LatestPublished;
-            var ribbon = day is null ? new List<RibbonDay>() : await BondRibbonAsync(bonds, calendar, day.Value);
+            var history = day is null ? new List<PnlDay>() : await BondHistoryAsync(bonds, calendar, day.Value);
             var currencies = day is null ? Array.Empty<string>() : await CurrenciesAsync(store, day.Value);
             try
             {
@@ -91,13 +91,13 @@ public static class WebApp
                 var before = book.PreviousDate is null ? null : await bonds.LoadCurveAsync(book.PreviousDate.Value);
                 var (translation, untranslated) = await TranslateAsync(store, currency, book.Date, book.PreviousDate, book.ValueCad, book.PreviousValueCad,
                     new[] { ("held", book.HeldPnlCad), ("new_trades", book.NewTradesPnlCad) });
-                return Html(Layout.Page($"Bond book, {Pages.Html.LongDate(book.Date)}", Tab.Bonds, book.Date,
-                    Views.BondBook(book, ribbon, translation, nav, calendar, today, before) + untranslated, currencies, currency?.Code, BondReport.Source));
+                return Html(Layout.Page($"Bond book, {Pages.Html.LongDate(book.Date)}", Tab.Bonds, currency?.Code,
+                    Views.BondBook(book, history, translation, nav, calendar, currencies, today, before, untranslated), BondReport.Source));
             }
             catch (BookRefusedException refusal)
             {
-                return Html(Layout.Page("No bond book", Tab.Bonds, bookDate, Views.Refused(day, refusal.Reasons, ribbon, nav),
-                    currencies, currency?.Code, BondReport.Source), 409);
+                return Html(Layout.Page("No bond book", Tab.Bonds, currency?.Code,
+                    Views.Refused("Bond book", day, refusal.Reasons, history, nav, calendar, currencies), BondReport.Source), 409);
             }
         });
 
@@ -106,7 +106,7 @@ public static class WebApp
             var runs = await recon.ListRunsAsync();
             var run = runs.Count == 0 ? null : runs[^1];
             var breaks = run is null ? Array.Empty<StoredBreak>() : await recon.LoadBreaksAsync(run.Id);
-            return Html(Layout.Page("Breaks", Tab.Breaks, null, Views.Breaks(run, breaks), Array.Empty<string>(), null, Attribution.Source));
+            return Html(Layout.Page("Breaks", Tab.Breaks, null, Views.Breaks(run, breaks), Attribution.Source));
         });
 
         app.MapGet("/api/book", async (string? date, PostgresStore store) =>
@@ -160,7 +160,7 @@ public static class WebApp
     private static IResult Html(string page, int status = 200) => Results.Content(page, "text/html; charset=utf-8", statusCode: status);
 
     private static IResult BadRequest(string problem, Tab tab) =>
-        Html(Layout.Page("Bad request", tab, null, Views.Message("That address is not understood", problem), Array.Empty<string>(), null, Attribution.Source), 400);
+        Html(Layout.Page("Bad request", tab, null, Views.Message("That address is not understood", problem), Attribution.Source), 400);
 
     private static bool TryParse(string? date, string? ccy, out DateOnly? bookDate, out Currency? currency, out string? problem)
     {
@@ -184,39 +184,39 @@ public static class WebApp
         return true;
     }
 
-    /// <summary>Each published day's P&amp;L up to <paramref name="end"/>, for the ribbon; null where the book is refused.</summary>
-    private static async Task<List<RibbonDay>> FxRibbonAsync(PostgresStore store, RateCalendar calendar, DateOnly end)
+    /// <summary>Each published day's P&amp;L in the history window, for the history pane; null where the book is refused.</summary>
+    private static async Task<List<PnlDay>> FxHistoryAsync(PostgresStore store, RateCalendar calendar, DateOnly end)
     {
-        var days = new List<RibbonDay>();
+        var days = new List<PnlDay>();
         foreach (var d in Window(calendar, end))
         {
-            try { days.Add(new RibbonDay(d, (await new BookService(store).BuildAsync(d)).TotalPnlCad)); }
-            catch (BookRefusedException) { days.Add(new RibbonDay(d, null)); }
+            try { days.Add(new PnlDay(d, (await new BookService(store).BuildAsync(d)).TotalPnlCad)); }
+            catch (BookRefusedException) { days.Add(new PnlDay(d, null)); }
         }
-        if (!calendar.PublishedDates.Contains(end)) days.Add(new RibbonDay(end, null));
+        if (!calendar.PublishedDates.Contains(end)) days.Add(new PnlDay(end, null));
         return days.OrderBy(d => d.Date).ToList();
     }
 
-    private static async Task<List<RibbonDay>> BondRibbonAsync(BondStore bonds, RateCalendar calendar, DateOnly end)
+    private static async Task<List<PnlDay>> BondHistoryAsync(BondStore bonds, RateCalendar calendar, DateOnly end)
     {
-        var days = new List<RibbonDay>();
+        var days = new List<PnlDay>();
         foreach (var d in Window(calendar, end))
         {
-            try { days.Add(new RibbonDay(d, (await new BondBookService(bonds).BuildAsync(d)).TotalPnlCad)); }
-            catch (BookRefusedException) { days.Add(new RibbonDay(d, null)); }
+            try { days.Add(new PnlDay(d, (await new BondBookService(bonds).BuildAsync(d)).TotalPnlCad)); }
+            catch (BookRefusedException) { days.Add(new PnlDay(d, null)); }
         }
-        if (!calendar.PublishedDates.Contains(end)) days.Add(new RibbonDay(end, null));
+        if (!calendar.PublishedDates.Contains(end)) days.Add(new PnlDay(end, null));
         return days.OrderBy(d => d.Date).ToList();
     }
 
     /// <summary>
-    /// The published days the ribbon shows: the latest <see cref="RibbonDays"/>, so every day is seen in the same
-    /// strip; or, for an older day, the <see cref="RibbonDays"/> ending at it.
+    /// The published days the history shows: the latest <see cref="PnlDays"/>, so every day is seen in the same
+    /// strip; or, for an older day, the <see cref="PnlDays"/> ending at it.
     /// </summary>
     private static IEnumerable<DateOnly> Window(RateCalendar calendar, DateOnly day)
     {
-        var latest = calendar.PublishedDates.TakeLast(RibbonDays).ToList();
-        return latest.Count > 0 && day >= latest[0] ? latest : calendar.PublishedDates.Where(d => d <= day).TakeLast(RibbonDays);
+        var latest = calendar.PublishedDates.TakeLast(PnlDays).ToList();
+        return latest.Count > 0 && day >= latest[0] ? latest : calendar.PublishedDates.Where(d => d <= day).TakeLast(PnlDays);
     }
 
     /// <summary>The currencies the picker offers for a day: CAD, then every currency with a rate that day.</summary>

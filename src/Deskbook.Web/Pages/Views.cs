@@ -8,184 +8,199 @@ using Deskbook.Infrastructure.Postgres;
 
 namespace Deskbook.Web.Pages;
 
-/// <summary>Where a view's links point: its path, and the currency to carry along.</summary>
+/// <summary>Where a sheet's links point: its path, and the currency to carry along.</summary>
 internal sealed record Nav(string Path, string? Currency)
 {
     public string To(DateOnly date) =>
         $"{Path}?date={Output.Date(date)}{(Currency is null ? "" : "&amp;ccy=" + Currency)}";
 }
 
-/// <summary>The body of each view. Every value that comes from data goes through <see cref="Html.E"/>.</summary>
+/// <summary>The body of each sheet. Every value that comes from data goes through <see cref="Html.E"/>.</summary>
 internal static class Views
 {
-    public static string FxBook(Book book, IReadOnlyList<RibbonDay> ribbon, Translation? translation, Nav nav, RateCalendar calendar)
+    public static string FxBook(Book book, IReadOnlyList<PnlDay> history, Translation? translation, Nav nav, RateCalendar calendar,
+        IReadOnlyList<string> currencies, string note = "")
     {
-        var body = new StringBuilder();
-        body.Append(DayHead(book.Date, book.PreviousDate, calendar, nav, book.TotalPnlCad,
-            $"New trades {Html.Signed(book.NewTradesPnlCad)} and revaluation {Html.Signed(book.RevaluationPnlCad)}"));
-        body.Append(Ribbon.Render(ribbon, book.Date, nav.To, "CAD"));
+        var body = new StringBuilder(Toolbar("FX book", book.Date, calendar, nav, currencies, $"/api/book?date={Output.Date(book.Date)}"));
+        body.Append("<div class=\"grid\"><div class=\"stack\">");
 
-        body.Append("<ul class=\"facts\">")
-            .Append(Fact("Book value", "CAD " + Output.Amount(Output.Cents(book.ValueCad))))
-            .Append(Fact("Previous value", "CAD " + Html.Plain(book.PreviousValueCad)))
-            .Append(Fact("New trades", book.NewTradeIds.Count == 0 ? "none" : Html.E(string.Join(", ", book.NewTradeIds))))
-            .Append("</ul>");
-
-        body.Append("<h2>Positions</h2><div class=\"sheet\"><table><thead><tr><th scope=\"col\">Currency</th><th scope=\"col\">Position</th>" +
-                    "<th scope=\"col\">CAD per unit</th><th scope=\"col\">Previous</th><th scope=\"col\">Value, CAD</th>" +
-                    "<th scope=\"col\">Revaluation</th><th scope=\"col\">New trades</th></tr></thead><tbody>");
+        body.Append($"<section class=\"pane\"><h2>Positions <small>valued at Bank of Canada rates of {Html.ShortDate(book.Date)}" +
+                    (book.PreviousDate is null ? "" : $", against {Html.ShortDate(book.PreviousDate.Value)}") + "</small></h2><div class=\"scroll\"><table>" +
+                    "<thead><tr><th scope=\"col\">Currency</th><th scope=\"col\">Position</th><th scope=\"col\">CAD per unit</th>" +
+                    "<th scope=\"col\">Previous</th><th scope=\"col\">Value, CAD</th><th scope=\"col\">Revaluation</th>" +
+                    "<th scope=\"col\">New trades</th><th scope=\"col\">Day's P&amp;L</th></tr></thead><tbody>");
         foreach (var p in book.Positions)
         {
             body.Append("<tr>")
-                .Append($"<td class=\"name\">{Html.E(p.Currency.Code)}</td>")
-                .Append($"<td>{Html.Plain(p.ClosingAmount)}</td>")
+                .Append($"<th scope=\"row\">{Html.E(p.Currency.Code)}</th>")
+                .Append($"<td>{Html.Acct(p.ClosingAmount)}</td>")
                 .Append($"<td>{p.Rate.ToString(CultureInfo.InvariantCulture)}</td>")
                 .Append($"<td>{(p.PreviousRate is null ? "" : p.PreviousRate.Value.ToString(CultureInfo.InvariantCulture))}</td>")
-                .Append($"<td>{Html.Plain(p.ValueCad)}</td>")
-                .Append($"<td class=\"{Html.Tone(p.RevaluationPnlCad)}\">{Html.Signed(p.RevaluationPnlCad)}</td>")
-                .Append($"<td class=\"{Html.Tone(p.NewTradesPnlCad)}\">{Html.Signed(p.NewTradesPnlCad)}</td>")
+                .Append($"<td>{Html.Acct(p.ValueCad)}</td>")
+                .Append(Html.PnlCell(p.RevaluationPnlCad))
+                .Append(Html.PnlCell(p.NewTradesPnlCad))
+                .Append(Html.PnlCell(p.RevaluationPnlCad + p.NewTradesPnlCad))
                 .Append("</tr>");
         }
-        body.Append($"</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td>{Html.Plain(book.ValueCad)}</td>" +
-                    $"<td class=\"{Html.Tone(book.RevaluationPnlCad)}\">{Html.Signed(book.RevaluationPnlCad)}</td>" +
-                    $"<td class=\"{Html.Tone(book.NewTradesPnlCad)}\">{Html.Signed(book.NewTradesPnlCad)}</td></tr></tfoot></table></div>");
-        body.Append("<p class=\"note\">A new trade's line shows the value of both its legs at the day's rate; across currencies they add up to " +
-                    "what the trade made. Amounts are summed unrounded and shown to the cent. " +
-                    $"The same book as JSON: <a href=\"/api/book?date={Output.Date(book.Date)}\">/api/book?date={Output.Date(book.Date)}</a>.</p>");
+        body.Append("</tbody><tfoot>")
+            .Append($"<tr><th scope=\"row\">Book value</th><td></td><td></td><td></td><td>{Html.Acct(book.ValueCad)}</td>" +
+                    $"{Html.PnlCell(book.RevaluationPnlCad)}{Html.PnlCell(book.NewTradesPnlCad)}{Html.PnlCell(book.TotalPnlCad)}</tr>")
+            .Append(book.PreviousDate is null ? "" :
+                    $"<tr><th scope=\"row\" class=\"label\">Less book value of {Html.ShortDate(book.PreviousDate.Value)}</th><td></td><td></td><td></td>" +
+                    $"<td class=\"label\">{Html.Acct(book.PreviousValueCad)}</td><td></td><td></td><td></td></tr>")
+            .Append($"<tr class=\"result\"><th scope=\"row\">Day's P&amp;L</th><td></td><td></td><td></td>{Html.PnlCell(book.TotalPnlCad, "sum")}<td></td><td></td><td></td></tr>")
+            .Append("</tfoot></table></div>");
+        body.Append($"<p>New trades: {(book.NewTradeIds.Count == 0 ? "none" : Html.E(string.Join(", ", book.NewTradeIds)))}.</p></section>");
 
-        if (translation is not null) body.Append(Translated(translation, "new trades", "revaluation"));
+        if (translation is not null) body.Append(Translated(translation));
+        body.Append(note);
+        body.Append("</div>").Append(History.Pane(history, book.Date, nav.To)).Append("</div>");
         return body.ToString();
     }
 
-    public static string BondBook(BondBook book, IReadOnlyList<RibbonDay> ribbon, Translation? translation, Nav nav, RateCalendar calendar,
-        YieldCurve today, YieldCurve? before)
+    public static string BondBook(BondBook book, IReadOnlyList<PnlDay> history, Translation? translation, Nav nav, RateCalendar calendar,
+        IReadOnlyList<string> currencies, YieldCurve today, YieldCurve? before, string note = "")
     {
-        var body = new StringBuilder();
-        body.Append(DayHead(book.Date, book.PreviousDate, calendar, nav, book.TotalPnlCad,
-            $"Held positions {Html.Signed(book.HeldPnlCad)} and new trades {Html.Signed(book.NewTradesPnlCad)}"));
-        body.Append(Ribbon.Render(ribbon, book.Date, nav.To, "CAD"));
+        var body = new StringBuilder(Toolbar("Bond book", book.Date, calendar, nav, currencies, $"/api/bonds?date={Output.Date(book.Date)}"));
+        body.Append("<div class=\"grid\"><div class=\"stack\">");
 
-        body.Append("<ul class=\"facts\">")
-            .Append(Fact("Book value", "CAD " + Html.Plain(book.ValueCad)))
-            .Append(Fact("Bonds at market", "CAD " + Html.Plain(book.MarketValueCad)))
-            .Append(Fact("Cash from bond trades", "CAD " + Html.Plain(book.CashCad)))
-            .Append(Fact("DV01", "CAD " + Html.Plain(book.Dv01Cad)))
-            .Append("</ul>");
-
-        body.Append("<h2>Benchmark curve</h2>").Append(Curve(today, before));
-
-        body.Append("<h2>Bonds</h2><div class=\"sheet\"><table><thead><tr><th scope=\"col\">Bond</th><th scope=\"col\">Face</th>" +
-                    "<th scope=\"col\">Yield</th><th scope=\"col\">Clean</th><th scope=\"col\">Accrued</th><th scope=\"col\">Value, CAD</th>" +
-                    "<th scope=\"col\">DV01</th><th scope=\"col\">Held</th><th scope=\"col\">New trades</th></tr></thead><tbody>");
+        body.Append($"<section class=\"pane\"><h2>Bonds <small>model prices from the benchmark curve of {Html.ShortDate(book.Date)}, not market quotes</small></h2>" +
+                    "<div class=\"scroll\"><table><thead><tr><th scope=\"col\">Bond</th><th scope=\"col\">Face</th><th scope=\"col\">Yield</th>" +
+                    "<th scope=\"col\">Clean</th><th scope=\"col\">Accrued</th><th scope=\"col\">Value, CAD</th><th scope=\"col\">DV01</th>" +
+                    "<th scope=\"col\">Held</th><th scope=\"col\">New trades</th><th scope=\"col\">Day's P&amp;L</th></tr></thead><tbody>");
         foreach (var l in book.Lines)
         {
             body.Append("<tr>")
-                .Append($"<td class=\"name\">{Html.E(l.Bond.Id)}<small>{Html.E(l.Bond.Description)}</small></td>")
-                .Append($"<td>{Html.Plain(l.ClosingFace)}</td>")
+                .Append($"<th scope=\"row\">{Html.E(l.Bond.Id)}<small>{Html.E(l.Bond.Description)}</small></th>")
+                .Append($"<td>{Html.Acct(l.ClosingFace)}</td>")
                 .Append($"<td>{(l.Price is null ? "" : Html.Number(l.Price.YieldPercent, "0.0000") + "%")}</td>")
                 .Append($"<td>{(l.Price is null ? "" : Html.Number(l.Price.CleanPrice, "0.0000"))}</td>")
                 .Append($"<td>{(l.Price is null ? "" : Html.Number(l.Price.Accrued, "0.0000"))}</td>")
-                .Append($"<td>{Html.Plain(l.MarketValueCad)}</td>")
-                .Append($"<td>{Html.Plain(l.Dv01Cad)}</td>")
-                .Append($"<td class=\"{Html.Tone(l.HeldPnlCad)}\">{Html.Signed(l.HeldPnlCad)}</td>")
-                .Append($"<td class=\"{Html.Tone(l.NewTradesPnlCad)}\">{Html.Signed(l.NewTradesPnlCad)}</td>")
+                .Append($"<td>{Html.Acct(l.MarketValueCad)}</td>")
+                .Append($"<td>{Html.Acct(l.Dv01Cad)}</td>")
+                .Append(Html.PnlCell(l.HeldPnlCad))
+                .Append(Html.PnlCell(l.NewTradesPnlCad))
+                .Append(Html.PnlCell(l.HeldPnlCad + l.NewTradesPnlCad))
                 .Append("</tr>");
         }
-        body.Append($"</tbody><tfoot><tr><td>Total</td><td></td><td></td><td></td><td></td><td>{Html.Plain(book.MarketValueCad)}</td>" +
-                    $"<td>{Html.Plain(book.Dv01Cad)}</td><td class=\"{Html.Tone(book.HeldPnlCad)}\">{Html.Signed(book.HeldPnlCad)}</td>" +
-                    $"<td class=\"{Html.Tone(book.NewTradesPnlCad)}\">{Html.Signed(book.NewTradesPnlCad)}</td></tr></tfoot></table></div>");
-        body.Append($"<p class=\"note\">{Html.E(BondReport.Model)} Prices per 100 of face. " +
-                    $"The same book as JSON: <a href=\"/api/bonds?date={Output.Date(book.Date)}\">/api/bonds?date={Output.Date(book.Date)}</a>.</p>");
+        const string gap = "<td></td><td></td><td></td><td></td>";
+        body.Append("</tbody><tfoot>")
+            .Append($"<tr><th scope=\"row\">Bonds at market</th>{gap}<td>{Html.Acct(book.MarketValueCad)}</td><td>{Html.Acct(book.Dv01Cad)}</td>" +
+                    $"{Html.PnlCell(book.HeldPnlCad)}{Html.PnlCell(book.NewTradesPnlCad)}{Html.PnlCell(book.TotalPnlCad)}</tr>")
+            .Append($"<tr><th scope=\"row\" class=\"label\">Cash from bond trades</th>{gap}<td class=\"label\">{Html.Acct(book.CashCad)}</td><td></td><td></td><td></td><td></td></tr>")
+            .Append($"<tr class=\"result\"><th scope=\"row\">Book value</th>{gap}<td>{Html.Acct(book.ValueCad)}</td><td></td><td></td><td></td><td></td></tr>")
+            .Append(book.PreviousDate is null ? "" :
+                    $"<tr><th scope=\"row\" class=\"label\">Less book value of {Html.ShortDate(book.PreviousDate.Value)}</th>{gap}<td class=\"label\">{Html.Acct(book.PreviousValueCad)}</td><td></td><td></td><td></td><td></td></tr>")
+            .Append($"<tr class=\"result\"><th scope=\"row\">Day's P&amp;L</th>{gap}{Html.PnlCell(book.TotalPnlCad, "sum")}<td></td><td></td><td></td><td></td></tr>")
+            .Append("</tfoot></table></div></section>");
 
-        if (translation is not null) body.Append(Translated(translation, "held", "new trades"));
+        if (translation is not null) body.Append(Translated(translation));
+        body.Append(note);
+        body.Append("</div><div class=\"stack\">").Append(Curve(today, before)).Append(History.Pane(history, book.Date, nav.To)).Append("</div></div>");
         return body.ToString();
     }
 
     public static string Breaks(ReconRun? run, IReadOnlyList<StoredBreak> breaks)
     {
-        var body = new StringBuilder("<div class=\"day-head\"><div><h1>Breaks</h1>");
+        var body = new StringBuilder("<div class=\"toolbar\"><h1>Breaks</h1>");
         if (run is null)
         {
-            body.Append("<p class=\"since\">No reconciliation has run yet. Run <code>deskbook recon run &lt;confirmations.csv&gt;</code> " +
-                        "to compare the desk's trades with the counterparties' confirmations.</p></div></div>");
+            body.Append("</div><section class=\"pane\"><h2>No reconciliation yet</h2><p>Run <code>deskbook recon run &lt;confirmations.csv&gt;</code> " +
+                        "to compare the desk's trades with the counterparties' confirmations.</p></section>");
             return body.ToString();
         }
 
         var open = breaks.Count(b => !b.Resolved);
-        body.Append($"<p class=\"since\">Latest run, #{run.Id}, on {Html.LongDate(DateOnly.FromDateTime(run.RunAt.UtcDateTime))} at " +
-                    $"{run.RunAt.UtcDateTime:HH:mm} UTC, from <strong>{Html.E(run.SourceName)}</strong> " +
-                    $"(SHA-256 <span title=\"{Html.E(run.SourceSha256)}\">{Html.E(run.SourceSha256[..12])}</span>).</p></div>");
-        body.Append($"<div class=\"result\"><p class=\"figure {(open == 0 ? "gain" : "loss")}\">{open}<span class=\"ccy\">open</span></p>" +
-                    $"<p class=\"split\">{run.Matched} of {run.TradesCompared} trades matched</p></div></div>");
+        body.Append($"<span>Run #{run.Id}, {Html.ShortDate(DateOnly.FromDateTime(run.RunAt.UtcDateTime))} {run.RunAt.UtcDateTime:HH:mm} UTC, " +
+                    $"{Html.E(run.SourceName)} <span class=\"step\" title=\"SHA-256 {Html.E(run.SourceSha256)}\">{Html.E(run.SourceSha256[..12])}</span></span>" +
+                    $"<span class=\"step\">{run.Matched} of {run.TradesCompared} trades matched, {breaks.Count} breaks, {open} open</span></div>");
 
         if (breaks.Count == 0)
         {
-            body.Append("<p>Every trade agrees with its confirmation.</p>");
+            body.Append("<section class=\"pane\"><h2>No breaks</h2><p>Every trade agrees with its confirmation.</p></section>");
             return body.ToString();
         }
 
-        body.Append("<h2>What differs</h2><div class=\"sheet\"><table class=\"text\"><thead><tr><th scope=\"col\">Break</th><th scope=\"col\">Kind</th>" +
-                    "<th scope=\"col\">Trade</th><th scope=\"col\">Confirmation</th><th scope=\"col\">Detail</th><th scope=\"col\">Status</th>" +
+        body.Append("<section class=\"pane\"><h2>Breaks <small>kept as found; a resolution is a note added with <code>deskbook recon resolve</code></small></h2>" +
+                    "<div class=\"scroll\"><table class=\"text\"><thead><tr><th scope=\"col\">#</th><th scope=\"col\">Status</th><th scope=\"col\">Kind</th>" +
+                    "<th scope=\"col\">Trade</th><th scope=\"col\">Confirmation</th><th scope=\"col\">What differs</th><th scope=\"col\">Resolution</th>" +
                     "</tr></thead><tbody>");
         foreach (var b in breaks)
         {
-            var status = b.Resolved
-                ? $"<span class=\"status resolved\">Resolved</span><br><small>{Html.E(b.Resolutions[^1].ResolvedBy)}: {Html.E(b.Resolutions[^1].Note)}</small>"
-                : "<span class=\"status open\">Open</span>";
+            var last = b.Resolved ? b.Resolutions[^1] : null;
             body.Append("<tr>")
-                .Append($"<td>#{b.Id}</td>")
-                .Append($"<td class=\"name\">{Kind(b.Break.Kind)}</td>")
+                .Append($"<th scope=\"row\">{b.Id}</th>")
+                .Append(b.Resolved ? "<td><span class=\"status resolved\">Resolved</span></td>" : "<td><span class=\"status open\">Open</span></td>")
+                .Append($"<td>{Kind(b.Break.Kind)}</td>")
                 .Append($"<td>{Html.E(b.Break.TradeId ?? "")}</td>")
                 .Append($"<td>{Html.E(b.Break.ConfirmationId ?? "")}</td>")
                 .Append($"<td>{Html.E(b.Break.Detail)}</td>")
-                .Append($"<td>{status}</td>")
+                .Append($"<td>{(last is null ? "" : $"{Html.E(last.Note)}<small>{Html.E(last.ResolvedBy)}</small>")}</td>")
                 .Append("</tr>");
         }
-        body.Append("</tbody></table></div>");
-        body.Append("<p class=\"note\">Breaks are kept as found and are never edited. A resolution is a note added with " +
-                    "<code>deskbook recon resolve</code>.</p>");
+        body.Append("</tbody></table></div></section>");
         return body.ToString();
     }
 
-    public static string Refused(DateOnly? date, IReadOnlyList<string> reasons, IReadOnlyList<RibbonDay> ribbon, Nav nav)
+    public static string Refused(string sheet, DateOnly? date, IReadOnlyList<string> reasons, IReadOnlyList<PnlDay> history, Nav nav,
+        RateCalendar calendar, IReadOnlyList<string> currencies)
     {
         var body = new StringBuilder();
-        if (date is not null) body.Append(Ribbon.Render(ribbon, date.Value, nav.To, "CAD"));
-        body.Append($"<section class=\"stop\"><h2>No book for {(date is null ? "this day" : Html.LongDate(date.Value))}</h2>" +
+        if (date is not null) body.Append(Toolbar(sheet, date.Value, calendar, nav, currencies, null));
+        body.Append("<div class=\"grid\"><div class=\"stack\">")
+            .Append($"<section class=\"pane stop\"><h2>No book for {(date is null ? "this day" : Html.LongDate(date.Value))}</h2>" +
                     "<p>The stored data cannot support an honest book, so none is shown:</p><ul>");
         foreach (var reason in reasons) body.Append("<li>").Append(Html.E(reason)).Append("</li>");
-        body.Append("</ul></section>");
-        return body.ToString();
+        body.Append("</ul></section></div>");
+        if (date is not null) body.Append(History.Pane(history, date.Value, nav.To));
+        return body.Append("</div>").ToString();
     }
 
     public static string Message(string title, string text) =>
-        $"<section class=\"stop\"><h2>{Html.E(title)}</h2><p>{Html.E(text)}</p></section>";
+        $"<section class=\"pane stop\"><h2>{Html.E(title)}</h2><p>{Html.E(text)}</p></section>";
 
-    private static string DayHead(DateOnly date, DateOnly? previous, RateCalendar calendar, Nav nav, decimal pnl, string split)
+    /// <summary>
+    /// The sheet's first line: its name and day, steps to the neighbouring published days, and a plain GET form
+    /// to pick a day and a second currency. No script.
+    /// </summary>
+    private static string Toolbar(string sheet, DateOnly day, RateCalendar calendar, Nav nav, IReadOnlyList<string> currencies, string? json)
     {
-        var next = calendar.PublishedDates.Where(d => d > date).Select(d => (DateOnly?)d).FirstOrDefault();
-        var since = previous is null
-            ? "First published day stored."
-            : $"Since <a href=\"{nav.To(previous.Value)}\">{Html.LongDate(previous.Value)}</a>, the previous published day.";
-        if (next is not null) since += $" Next: <a href=\"{nav.To(next.Value)}\">{Html.LongDate(next.Value)}</a>.";
-        return $"<div class=\"day-head\"><div><h1>{Html.LongDate(date)}</h1><p class=\"since\">{since}</p></div>" +
-               $"<div class=\"result\"><p class=\"figure {Html.Tone(pnl)}\">{Html.Signed(pnl)}<span class=\"ccy\">CAD</span></p>" +
-               $"<p class=\"split\">{split}</p></div></div>";
+        var previous = calendar.PublishedDates.Where(d => d < day).Select(d => (DateOnly?)d).LastOrDefault();
+        var next = calendar.PublishedDates.Where(d => d > day).Select(d => (DateOnly?)d).FirstOrDefault();
+        var html = new StringBuilder($"<div class=\"toolbar\"><h1>{Html.E(sheet)}, {Html.LongDate(day)}</h1>");
+        if (previous is not null) html.Append($"<a class=\"step\" href=\"{nav.To(previous.Value)}\" rel=\"prev\">Previous: {Html.ShortDate(previous.Value)}</a>");
+        if (next is not null) html.Append($"<a class=\"step\" href=\"{nav.To(next.Value)}\" rel=\"next\">Next: {Html.ShortDate(next.Value)}</a>");
+        html.Append($"<form method=\"get\" action=\"{nav.Path}\"><label for=\"date\">Day</label>" +
+                    $"<input type=\"date\" id=\"date\" name=\"date\" value=\"{Output.Date(day)}\">");
+        if (currencies.Count > 0)
+        {
+            var options = string.Concat(currencies.Select(c =>
+                $"<option value=\"{(c == "CAD" ? "" : c)}\"{((nav.Currency ?? "CAD") == c ? " selected" : "")}>{c}</option>"));
+            html.Append($"<label for=\"ccy\">Also in</label><select id=\"ccy\" name=\"ccy\">{options}</select>");
+        }
+        html.Append("<button type=\"submit\">Show</button></form>");
+        if (json is not null) html.Append($"<a class=\"json\" href=\"{json}\">JSON</a>");
+        return html.Append("</div>").ToString();
     }
 
-    private static string Fact(string key, string value) => $"<li><span class=\"k\">{Html.E(key)}</span><span class=\"v\">{value}</span></li>";
-
-    private static string Translated(Translation t, string first, string second)
+    private static string Translated(Translation t)
     {
         var c = Html.E(t.Currency.Code);
-        var parts = string.Join(", ", t.Parts.Select(p => $"{p.Part.Replace('_', ' ')} {Html.Signed(p.Amount)}"));
-        return $"<section class=\"translated\"><h2>In {c}</h2>" +
-               $"<p>Book value {c} {Html.Plain(t.Value)}, previous {c} {Html.Plain(t.PreviousValue)}.</p>" +
-               $"<p>Day's P&amp;L <strong class=\"{Html.Tone(t.TotalPnl)}\">{c} {Html.Signed(t.TotalPnl)}</strong>: {parts}, " +
-               $"and translation {Html.Signed(t.TranslationEffect)}.</p>" +
-               $"<p class=\"why\">At {t.CadPerUnit.ToString(CultureInfo.InvariantCulture)} CAD per {c}" +
-               (t.PreviousCadPerUnit is null ? "" : $" (previously {t.PreviousCadPerUnit.Value.ToString(CultureInfo.InvariantCulture)})") +
-               ". Translation is the previous value re-marked at the rate change.</p></section>";
+        var rows = new StringBuilder();
+        foreach (var (part, amount) in t.Parts.Select(p => (p.Part, p.Amount)))
+        {
+            var label = part switch { "new_trades" => "New trades", "revaluation" => "Revaluation", "held" => "Held", _ => part };
+            rows.Append($"<tr><th scope=\"row\">{Html.E(label)}</th>{Html.PnlCell(amount)}</tr>");
+        }
+        return $"<section class=\"pane\"><h2>In {c} <small>at {t.CadPerUnit.ToString(CultureInfo.InvariantCulture)} CAD per {c}" +
+               (t.PreviousCadPerUnit is null ? "" : $", previously {t.PreviousCadPerUnit.Value.ToString(CultureInfo.InvariantCulture)}") +
+               "; translation re-marks the previous value at the rate change</small></h2><div class=\"scroll\"><table class=\"narrow\">" +
+               $"<thead><tr><th scope=\"col\"></th><th scope=\"col\">{c}</th></tr></thead><tbody>" +
+               $"<tr><th scope=\"row\">Book value</th><td>{Html.Acct(t.Value)}</td></tr>" +
+               $"<tr><th scope=\"row\">Previous book value</th><td>{Html.Acct(t.PreviousValue)}</td></tr>" +
+               rows +
+               $"<tr><th scope=\"row\">Translation</th>{Html.PnlCell(t.TranslationEffect)}</tr></tbody>" +
+               $"<tfoot><tr class=\"result\"><th scope=\"row\">Day's P&amp;L</th>{Html.PnlCell(t.TotalPnl, "sum")}</tr></tfoot></table></div></section>";
     }
 
     private static string Kind(BreakKind kind) => kind switch
@@ -199,7 +214,7 @@ internal static class Views
     /// <summary>Today's benchmark curve as a line, the previous day's dashed behind it, each tenor labelled.</summary>
     private static string Curve(YieldCurve today, YieldCurve? before)
     {
-        const int W = 520, H = 200, L = 44, R = 16, T = 24, B = 34;
+        const int W = 300, H = 170, L = 36, R = 12, T = 18, B = 24;
         var all = today.Points.Values.Concat(before?.Points.Values ?? Enumerable.Empty<decimal>()).ToList();
         if (all.Count == 0) return "";
         var lo = Math.Floor(all.Min() * 10 - 1) / 10;
@@ -208,28 +223,28 @@ internal static class Views
         double Y(decimal y) => T + (double)((hi - y) / (hi - lo)) * (H - T - B);
         string Line(YieldCurve c) => string.Join(" ", c.Points.Select(p => $"{X(p.Key):0.#},{Y(p.Value):0.#}"));
 
-        var svg = new StringBuilder($"<figure class=\"curve\"><svg viewBox=\"0 0 {W} {H}\" role=\"img\" aria-labelledby=\"curve-title\">");
-        svg.Append($"<title id=\"curve-title\">Benchmark yields on {Html.LongDate(today.Date)}" +
-                   (before is null ? "" : $", with {Html.LongDate(before.Date)} dashed") + "</title>");
+        var svg = new StringBuilder($"<section class=\"pane curve\"><h2>Benchmark yields, % <small>dashed: {(before is null ? "none" : Html.ShortDate(before.Date))}</small></h2>");
+        svg.Append($"<svg viewBox=\"0 0 {W} {H}\" role=\"img\" aria-labelledby=\"curve-title\"><title id=\"curve-title\">Bank of Canada benchmark yields on " +
+                   $"{Html.LongDate(today.Date)}{(before is null ? "" : $", with {Html.LongDate(before.Date)} dashed")}</title>");
         for (var g = lo; g <= hi; g += 0.1m)
         {
             if (Math.Round(g * 10) % 2 != 0) continue;
             svg.Append($"<line class=\"grid\" x1=\"{L}\" x2=\"{W - R}\" y1=\"{Y(g):0.#}\" y2=\"{Y(g):0.#}\"/>");
-            svg.Append($"<text x=\"{L - 6}\" y=\"{Y(g) + 4:0.#}\" text-anchor=\"end\">{g:0.0}%</text>");
+            svg.Append($"<text x=\"{L - 5}\" y=\"{Y(g) + 4:0.#}\" text-anchor=\"end\">{g:0.0}</text>");
         }
+        svg.Append($"<line class=\"axis\" x1=\"{L}\" x2=\"{W - R}\" y1=\"{H - B}\" y2=\"{H - B}\"/>");
         foreach (var tenor in YieldCurve.Tenors)
         {
-            svg.Append($"<text x=\"{X(tenor):0.#}\" y=\"{H - 10}\" text-anchor=\"middle\">{tenor} yr</text>");
+            svg.Append($"<text x=\"{X(tenor):0.#}\" y=\"{H - 8}\" text-anchor=\"middle\">{tenor}y</text>");
         }
         if (before is not null) svg.Append($"<polyline class=\"before\" points=\"{Line(before)}\"/>");
         svg.Append($"<polyline class=\"today\" points=\"{Line(today)}\"/>");
         foreach (var (tenor, y) in today.Points)
         {
-            svg.Append($"<circle class=\"pt\" cx=\"{X(tenor):0.#}\" cy=\"{Y(y):0.#}\" r=\"4\"/>");
-            svg.Append($"<text class=\"val\" x=\"{X(tenor):0.#}\" y=\"{Y(y) - 10:0.#}\">{y:0.00}</text>");
+            svg.Append($"<rect class=\"pt\" x=\"{X(tenor) - 2.5:0.#}\" y=\"{Y(y) - 2.5:0.#}\" width=\"5\" height=\"5\"/>");
+            var anchor = tenor == YieldCurve.Tenors[0] ? " style=\"text-anchor:start\"" : tenor == YieldCurve.Tenors[^1] ? " style=\"text-anchor:end\"" : "";
+            svg.Append($"<text class=\"val\" x=\"{X(tenor):0.#}\" y=\"{Y(y) - 7:0.#}\"{anchor}>{y:0.00}</text>");
         }
-        svg.Append("</svg><figcaption>Bank of Canada benchmark yields, percent. " +
-                   (before is null ? "" : $"Dashed: {Html.LongDate(before.Date)}. ") + "Bonds are priced from this curve.</figcaption></figure>");
-        return svg.ToString();
+        return svg.Append("</svg></section>").ToString();
     }
 }

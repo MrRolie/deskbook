@@ -55,8 +55,8 @@ New trades: FICT-0008
 - `--json` sur chaque commande, pour un script ou un agent. Codes de sortie : 0 fait, 1 panne, 2 usage, 3 refus,
   4 rapprochement terminé avec des écarts.
 - **Des pages web** en lecture seule : le livre de change, le livre d'obligations avec la courbe de référence, et
-  les écarts du dernier rapprochement. Un ruban montre le résultat de chaque jour publié ; chaque barre mène à ce
-  jour. Le choix de devise montre le livre dans une seconde devise. JSON à `/api/book` et `/api/bonds`, identique
+  les écarts du dernier rapprochement. Un historique montre le résultat de chaque jour publié ; chaque jour mène à
+  son livre. Le choix de devise montre le livre dans une seconde devise. JSON à `/api/book` et `/api/bonds`, identique
   au CLI. Un jour refusé s'affiche comme un refus.
 
 Les règles et leur raison : [`docs/problem.md`](docs/problem.md). L'ordre de lecture du code :
@@ -155,7 +155,7 @@ The session above shows it: fetch rates, import trades, print the book.
 - `--json` on every command, for a script or an agent. Exit codes: 0 done, 1 failure, 2 usage, 3 refused,
   4 reconciliation finished with breaks.
 - **Read-only web pages:** the FX book, the bond book with the benchmark curve, and the latest reconciliation's
-  breaks. A ribbon shows each published day's P&L; each bar leads to that day. The currency choice shows the book
+  breaks. A history lists each published day's P&L; each day leads to its book. The currency choice shows the book
   in a second currency. JSON at `/api/book` and `/api/bonds`, identical to the CLI. A refused day is shown as a
   refusal.
 

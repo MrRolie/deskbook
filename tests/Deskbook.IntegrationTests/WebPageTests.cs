@@ -65,9 +65,11 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Monday 23 November 2026", html);
-        Assert.Contains("CAD 42,827.80", html);
-        Assert.Contains("+4,117.60", html);
-        Assert.Contains("This desk is invented", html);
+        Assert.Contains("<td>42,827.80</td>", html);                // book value
+        Assert.Contains("<td class=\"sum\">4,117.60</td>", html);    // the day's P&L, double-ruled
+        Assert.Contains("<td>(474,400.00)</td>", html);              // a short position in the accountant's form
+        Assert.Contains("Demo Rates &amp; FX Desk (fictional)", html);
+        Assert.Contains("are invented", html);
         Assert.Contains("The Bank of Canada does not endorse this project.", html);
     }
 
@@ -80,7 +82,8 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Contains("No book for Wednesday 11 November 2026", html);
         Assert.Contains("published no rates for 2026-11-11", html);
-        Assert.DoesNotContain("<table", html);
+        Assert.DoesNotContain("Positions", html);   // no book is drawn, only the reasons and the history
+        Assert.DoesNotContain("Book value", html);
     }
 
     [Fact]
@@ -115,13 +118,16 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
     }
 
     [Fact]
-    public async Task The_ribbon_links_every_published_day_and_marks_the_current_one()
+    public async Task The_history_links_every_published_day_and_marks_the_current_one()
     {
         var html = await _http.GetStringAsync("/?date=2026-11-12");
-        Assert.Contains("<figure class=\"ribbon\">", html);
+        Assert.Contains("<section class=\"pane history\">", html);
         Assert.Contains("href=\"/?date=2026-11-02\"", html);
         Assert.Contains("href=\"/?date=2026-11-23\"", html);
-        Assert.Contains("aria-current=\"date\"", html);
+        Assert.Contains("<a href=\"/?date=2026-11-12\" aria-current=\"date\">Thu 12 Nov</a>", html);
+        Assert.Contains("(5,603.20)", html); // 2026-11-19, a losing day
+        var holiday = await (await _http.GetAsync("/?date=2026-11-11")).Content.ReadAsStringAsync(); // a refused day still lists the history
+        Assert.Contains("aria-current=\"date\">Wed 11 Nov</a></th><td class=\"none\">no book</td>", holiday);
     }
 
     [Fact]
@@ -131,9 +137,9 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
         var html = await response.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Friday 20 November 2026", html);
-        Assert.Contains("+81,890.77", html);
-        Assert.Contains("<figure class=\"curve\">", html);
-        Assert.Contains("Not market quotes", html);
+        Assert.Contains("<td class=\"sum\">81,890.77</td>", html);
+        Assert.Contains("<section class=\"pane curve\">", html);
+        Assert.Contains("not market quotes", html);
     }
 
     [Fact]
@@ -160,7 +166,8 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
     {
         var html = await _http.GetStringAsync("/?date=2026-11-23&ccy=USD");
         Assert.Contains("In USD", html);
-        Assert.Contains("USD 29,805.69", html);
+        Assert.Contains("<td>29,805.69</td>", html);
+        Assert.Contains("<td class=\"loss\">(82.75)</td>", html); // translation effect
         Assert.Contains("<option value=\"USD\" selected>", html);
         Assert.Equal(HttpStatusCode.BadRequest, (await _http.GetAsync("/?ccy=dollars")).StatusCode);
     }
@@ -184,6 +191,6 @@ public class WebPageTests : IClassFixture<TestDatabase>, IAsyncLifetime
         var html = await response.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Not shown in RUB", html);
-        Assert.Contains("+4,117.60", html);
+        Assert.Contains("<td class=\"sum\">4,117.60</td>", html);
     }
 }

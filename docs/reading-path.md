@@ -116,12 +116,15 @@ qui porte les règles.
     d'obligations), `/breaks` (dernier rapprochement), et `/api/book`, `/api/bonds` (le même JSON que le CLI). Un
     refus donne HTTP 409, une date ou une devise illisible 400, une base illisible 503. `Build(args, connexion)` est
     séparé de `Program.cs` pour que les tests démarrent la vraie application sur un port libre.
-16b. **`Pages/`** : `Layout` (l'en-tête du pupitre, les trois vues, le choix de devise par un simple formulaire GET,
-    la feuille de style), `Views` (le corps de chaque vue), `Ribbon` (le ruban des résultats quotidiens : une barre
-    par jour publié, chacune un lien vers ce jour) et `Html` (échappement, dates en toutes lettres, montants signés).
-    Pages construites en chaînes, sans moteur de gabarit, sans script ni fichier externe ; chaque valeur passe par
-    `WebUtility.HtmlEncode`. Un gain et une perte se distinguent par leur signe écrit, pas seulement par la couleur.
-    Un jour refusé affiche ses raisons, jamais un livre vide.
+16b. **`Pages/`** : `Layout` (la barre du pupitre, les trois feuilles en onglets, la feuille de style), `Views` (le
+    corps de chaque feuille : une ligne d'outils avec le jour, les jours voisins et un simple formulaire GET pour le
+    jour et la devise, puis des panneaux de tableaux), `History` (le résultat de chaque jour publié, du plus récent au
+    plus ancien, chaque jour un lien, avec une barre dans la cellule comme les barres de données d'un tableur) et
+    `Html` (échappement, dates, montants). La forme est celle d'un rapport de pupitre : un montant négatif entre
+    parenthèses, le rouge réservé aux pertes, le total sous un trait simple et le résultat du jour sous un double
+    trait, en rapprochant la valeur du livre de celle de la veille. Pages construites en chaînes, sans moteur de
+    gabarit, sans script ni fichier externe ; chaque valeur passe par `WebUtility.HtmlEncode`. Un jour refusé
+    affiche ses raisons, jamais un livre vide.
 
 ## 4. Les preuves : `tests/`
 
@@ -260,11 +263,14 @@ No database, no network, no clock: the easiest part to test, so the part that ca
     reconciliation), and `/api/book`, `/api/bonds` (the same JSON as the CLI). A refusal is HTTP 409, an unreadable
     date or currency 400, an unreadable database 503. `Build(args, connection)` is separate from `Program.cs` so
     the tests start the real application on a free port.
-16b. **`Pages/`**: `Layout` (the desk's masthead, the three views, the currency choice as a plain GET form, the
-    stylesheet), `Views` (each view's body), `Ribbon` (the daily P&L ribbon: one bar per published day, each a link
-    to that day) and `Html` (escaping, dates in words, signed amounts). Pages are built as strings, with no template
-    engine, script or external file; every value goes through `WebUtility.HtmlEncode`. A gain and a loss differ by
-    their written sign, not only by colour. A refused day shows its reasons, never an empty book.
+16b. **`Pages/`**: `Layout` (the desk's bar, the three sheets as tabs, the stylesheet), `Views` (each sheet's body:
+    a toolbar with the day, the neighbouring days and a plain GET form for day and currency, then panes of tables),
+    `History` (each published day's P&L, newest first, each day a link, with a bar in the cell like a spreadsheet's
+    data bars) and `Html` (escaping, dates, amounts). The form is a desk report's: a negative amount in
+    parentheses, red kept for losses, the total under a single rule and the day's P&L under a double rule,
+    reconciling the book's value with the previous day's. Pages are built as strings, with no template engine,
+    script or external file; every value goes through `WebUtility.HtmlEncode`. A refused day shows its reasons,
+    never an empty book.
 
 ### 4. The evidence: `tests/`
 
