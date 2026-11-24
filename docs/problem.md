@@ -9,16 +9,19 @@ takes from it. The French is the reference; the English follows.
 ## Ce que le prototype a montré
 
 1. **La source.** Le groupe Valet `FX_RATES_DAILY` rend, par jour publié, une valeur par série `FX<devise>CAD` :
-   le prix d'une unité de devise en dollars canadiens. Les valeurs sont des chaînes (`"1.4369"`) à quatre chiffres
-   significatifs ; les dates sont `yyyy-MM-dd`. Aucune clé d'accès.
+   le prix d'une unité de devise en dollars canadiens. Les valeurs sont des chaînes (`"1.4369"`) dont le nombre de
+   décimales est fixe pour chaque série : quatre (USD, EUR), cinq (INR, MXN) ou six (JPY, KRW, IDR), soit de deux à
+   cinq chiffres significatifs. Les dates sont `yyyy-MM-dd`. Aucune clé d'accès.
 2. **Des trous réels.** Le 2026-11-11 n'a aucune observation (jour férié pour la Banque). Trois séries déclarées
    (`RUB`, `SAR`, `VND`) n'ont aucune valeur sur la période. Une absence est donc normale et doit se voir.
 3. **L'ordre n'est pas garanti.** Avec `recent=N`, les observations arrivent de la plus récente à la plus
    ancienne ; avec `start_date`, de la plus ancienne à la plus récente. On trie par date, jamais par position.
 4. **La précision.** `decimal` en C#, `numeric` en PostgreSQL, lecture avec `CultureInfo.InvariantCulture` :
    rien ne passe par un `double`, et `numeric` garde l'échelle publiée (`0.008830`).
-5. **Le grain du yen.** `FXJPYCAD` est publié à six décimales (`0.009030`) : sur 100 millions de yens, un pas de
-   cotation vaut 100 CAD. Une partie du résultat quotidien est ce grain, pas le marché.
+5. **Le grain du yen.** `FXJPYCAD` est publié à six décimales (`0.009030`), mais la sixième valait 0 les 20 jours
+   observés (du 2026-10-26 au 2026-11-23) : le pas effectif est 0,00001, soit 1 000 CAD sur 100 millions de yens.
+   Une partie du résultat quotidien est ce grain, pas le marché ; deux jours au même taux donnent une
+   réévaluation nulle.
 6. **Le calcul tient.** Trois opérations fictives, évaluées aux taux réels du 2 au 23 novembre, donnent un livre
    qu'un calcul à la main confirme (le 23 : 350 000 × 1,4369 − 500 000 × 1,5672 + 100 000 000 × 0,009030
    − 590 000 = 32 315 CAD).
@@ -60,16 +63,18 @@ rendements obligataires et le CORRA existent dans Valet ; les utiliser est un ch
 ## What the spike showed
 
 1. **The source.** The Valet group `FX_RATES_DAILY` returns, per published day, one value per `FX<currency>CAD`
-   series: the price of one unit of the currency in Canadian dollars. Values are strings (`"1.4369"`) with four
-   significant figures; dates are `yyyy-MM-dd`. No access key.
+   series: the price of one unit of the currency in Canadian dollars. Values are strings (`"1.4369"`) with a fixed
+   number of decimals per series: four (USD, EUR), five (INR, MXN) or six (JPY, KRW, IDR), which is two to five
+   significant figures. Dates are `yyyy-MM-dd`. No access key.
 2. **Real gaps.** 2026-11-11 has no observation (a Bank holiday). Three declared series (`RUB`, `SAR`, `VND`) carry
    no value over the period. Absence is normal and must be visible.
 3. **Order is not guaranteed.** With `recent=N` observations come newest first; with `start_date`, oldest first.
    Sort by date, never index by position.
 4. **Precision.** `decimal` in C#, `numeric` in PostgreSQL, parsing with `CultureInfo.InvariantCulture`: nothing
    goes through a `double`, and `numeric` keeps the published scale (`0.008830`).
-5. **The yen's grain.** `FXJPYCAD` is published to six decimals (`0.009030`): on 100 million yen one quote step is
-   worth CAD 100. Part of the daily result is that grain, not the market.
+5. **The yen's grain.** `FXJPYCAD` is published to six decimals (`0.009030`), but the sixth was 0 on all 20 days
+   observed (2026-10-26 to 2026-11-23): the effective step is 0.00001, CAD 1,000 on 100 million yen. Part of the
+   daily result is that grain, not the market; two days at the same rate give a revaluation of zero.
 6. **The arithmetic holds.** Three fictional trades valued at real rates from 2 to 23 November give a book a hand
    calculation confirms (on the 23rd: 350,000 × 1.4369 − 500,000 × 1.5672 + 100,000,000 × 0.009030 − 590,000 =
    CAD 32,315).
