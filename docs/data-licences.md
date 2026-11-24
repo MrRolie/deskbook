@@ -47,8 +47,8 @@ Le livre d'obligations utilise les séries `BD.CDN.2YR.DQ.YLD` à `BD.CDN.10YR.D
 `bond_yields_benchmark`, en pour cent, aux mêmes conditions. Les séries « long terme » et « rendement réel » ne sont
 pas utilisées : la Banque n'en donne pas l'échéance en années. Les prix d'obligations affichés sont **calculés par
 ce projet** à partir de ces rendements (modification au sens du §1.1, indiquée dans chaque sortie) ; ce ne sont pas
-des cotes de marché. À la première requête (2026-11-24, UTC), les rendements du 2026-11-23 n'étaient pas encore
-publiés : ils paraissent avec un jour de retard sur les taux de change.
+des cotes de marché. À la première requête (2026-11-24 vers 04 h UTC), les rendements du 2026-11-23 n'étaient pas
+encore publiés alors que les taux de change de ce jour l'étaient ; une seule observation, pas une règle.
 
 ## Aucune autre source
 
@@ -99,8 +99,8 @@ et marqués comme fictifs.
 The bond book uses series `BD.CDN.2YR.DQ.YLD` to `BD.CDN.10YR.DQ.YLD` of group `bond_yields_benchmark`, in percent,
 on the same terms. The long-term and real-return series are not used: the Bank does not state their term in years.
 The bond prices shown are **computed by this project** from those yields (a change in the sense of §1.1, stated in
-every output); they are not market quotes. At the first fetch (2026-11-24, UTC) the yields for 2026-11-23 were not
-yet published: they appear a day later than the exchange rates.
+every output); they are not market quotes. At the first fetch (2026-11-24 around 04:00 UTC) the yields for 2026-11-23 were not yet
+published while that day's exchange rates were; one observation, not a rule.
 
 ## No other source
 

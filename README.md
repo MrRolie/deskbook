@@ -89,7 +89,8 @@ scripts/dev.sh web <adresse>:<port>      # la page, publiée sur cette adresse s
 Aucune personne n'a relu le code ligne par ligne. Ce qui le valide :
 
 - **Prix d'obligations contre une implémentation indépendante :** les prix, coupons courus, DV01 et livres
-  d'obligations attendus par les tests viennent d'un script Python séparé appliquant la même convention, pas du C#.
+  d'obligations attendus par les tests viennent de `tools/reference/bond_reference.py`, un script Python séparé
+  appliquant la même convention, pas du C# (`python3 -I tools/reference/bond_reference.py` les réimprime).
 - **Tests unitaires** (`tests/Deskbook.Tests`) : l'arithmétique du livre contre des calculs faits à la main à partir
   de taux réels, la décomposition du résultat, chaque cas de refus, la lecture des réponses Valet et des fichiers
   d'opérations.
@@ -167,7 +168,8 @@ Only Docker is needed; the .NET SDK and PostgreSQL run in their official images,
 No person reviewed the code line by line. What validates it:
 
 - **Bond prices against an independent implementation:** the prices, accrued interest, DV01 and bond books the
-  tests expect come from a separate Python script applying the same convention, not from the C#.
+  tests expect come from `tools/reference/bond_reference.py`, a separate Python script applying the same
+  convention, not from the C# (`python3 -I tools/reference/bond_reference.py` prints them again).
 - **Unit tests** (`tests/Deskbook.Tests`): the book's arithmetic against hand calculations from real rates, the
   P&L split, every refusal case, reading Valet answers and trade files.
 - **Integration tests against a real PostgreSQL** (`tests/Deskbook.IntegrationTests`): storage, rate revisions,

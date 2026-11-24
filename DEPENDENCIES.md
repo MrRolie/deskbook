@@ -17,11 +17,18 @@ uses ASP.NET Core, which ships with the .NET SDK: no package.
 
 Tout le reste vient de la bibliothèque standard de .NET : `System.Text.Json` pour le JSON, `HttpClient` pour l'API
 Valet, `TimeProvider` pour l'horloge. Pas d'ORM : le SQL est écrit à la main, visible et court. Pas de bibliothèque
-de ligne de commande : sept commandes ne la justifient pas.
+de ligne de commande : une quinzaine de commandes à peu d'options ne la justifient pas.
 
 Everything else is .NET's standard library: `System.Text.Json` for JSON, `HttpClient` for the Valet API,
-`TimeProvider` for the clock. No ORM: the SQL is hand-written, visible and short. No command-line library: seven
-commands do not justify one.
+`TimeProvider` for the clock. No ORM: the SQL is hand-written, visible and short. No command-line library: about
+fifteen commands with few options each do not justify one.
+
+## Un outil de vérification / A checking tool
+
+`tools/reference/bond_reference.py` n'utilise que la bibliothèque standard de Python ; il ne fait pas partie du
+programme et sert seulement à produire, indépendamment du C#, les nombres attendus par les tests d'obligations.
+It uses only Python's standard library; it is not part of the program, only an independent source for the numbers
+the bond tests expect.
 
 ## Les tests seulement / Tests only
 

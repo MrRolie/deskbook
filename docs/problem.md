@@ -52,11 +52,12 @@ takes from it. The French is the reference; the English follows.
 - **Interface.** Une ligne de commande, sortie JSON dès le premier jour ; codes de sortie distincts pour une
   erreur d'usage, un refus pour données manquantes et une panne.
 
-## Ce qui attend
+## Ce qui attendait, et ce qui a été construit depuis
 
-Les jours fériés réels comme calendrier, plusieurs devises de présentation, un rapprochement entre deux sources
-avec piste d'audit, une page web du livre du jour, un guide d'exploitation pour une tâche de nuit qui échoue. Les
-rendements obligataires et le CORRA existent dans Valet ; les utiliser est un choix de portée.
+Construits après la première version : une page web, un guide d'exploitation et une tâche du soir avec ses
+fichiers de déploiement, un rapprochement avec piste d'audit, un livre d'obligations à partir des rendements de
+référence, une seconde devise de présentation. Attend encore : un calendrier des jours fériés tenu à part (les jours
+sans publication de la Banque en tiennent lieu aujourd'hui) et le CORRA, qui existe dans Valet.
 
 ---
 
@@ -104,8 +105,9 @@ rendements obligataires et le CORRA existent dans Valet ; les utiliser est un ch
 - **Interface.** A command line with JSON output from day one; distinct exit codes for a usage error, a refusal
   for missing data, and a failure.
 
-## What waits
+## What waited, and what was built since
 
-Real holidays as a calendar, more than one reporting currency, a reconciliation between two sources with an audit
-trail, a web page for the day's book, a runbook for a nightly job that fails. Bond yields and CORRA exist in Valet;
-using them is a scope choice.
+Built after the first version: a web page, a runbook and an evening job with its deployment files, a
+reconciliation with an audit trail, a bond book from the benchmark yields, a second reporting currency. Still
+waiting: a holiday calendar kept on its own (the Bank's days without publication stand in for it today) and CORRA,
+which exists in Valet.

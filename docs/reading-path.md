@@ -2,7 +2,8 @@
 
 *Français d'abord ; [English below](#english).*
 
-L'ordre pour lire le code, et pour chaque arrêt : ce qu'il fait, pourquoi il a cette forme. Environ une heure.
+L'ordre pour lire le code, et pour chaque arrêt : ce qu'il fait, pourquoi il a cette forme. Environ deux heures ;
+le livre de change seul (arrêts 0 à 7, 9 à 12, 13 à 16) en prend une.
 
 ## 0. Les règles : `docs/problem.md`
 
@@ -50,11 +51,11 @@ qui porte les règles.
    comme des nombres (1000 = 1000.00), et pour une référence inconnue nomme les opérations non confirmées de même
    économie. Les écarts sortent toujours dans le même ordre.
 8. **`Attribution.cs`** : la mention de la source et du caractère fictif, en un seul endroit.
-8b. **`Translation.cs`** : un livre en CAD montré dans une autre devise. Valeur = valeur CAD / taux du jour ;
+8a. **`Translation.cs`** : un livre en CAD montré dans une autre devise. Valeur = valeur CAD / taux du jour ;
    chaque part du résultat est convertie au taux du jour, et l'effet de conversion = valeur CAD de la veille ×
    (1 / taux du jour − 1 / taux de la veille). *Pourquoi cette part :* sans elle, les parts converties ne font
    plus le total dès que le taux bouge ; avec elle, l'égalité est exacte et un test la vérifie.
-8a. **`Bonds/`** : le livre d'obligations. `Bond` (coupon semestriel, périodes comptées à rebours depuis
+8b. **`Bonds/`** : le livre d'obligations. `Bond` (coupon semestriel, périodes comptées à rebours depuis
    l'échéance pour garder les fins de mois), `YieldCurve` (rendements 2 à 10 ans, interpolation linéaire en
    années, refus hors courbe), `BondPricer` (prix = somme des flux actualisés à (1 + y/2)^(k − 1 + w), w = part de
    la période qui reste ; coupon couru actuel/actuel ; DV01 par réévaluation à ±1 pb), `BondBookCalculator` (valeur
@@ -62,6 +63,10 @@ qui porte les règles.
    *Pourquoi `double` ici :* `decimal` n'a pas de puissance fractionnaire ; chaque valeur actualisée est arrondie à
    10 décimales avant d'entrer dans une somme `decimal`. *Pourquoi la trésorerie dans la valeur :* acheter au juste
    prix ne doit rien changer, et un coupon reçu compense la baisse du prix plein le jour du détachement.
+   *Convention :* le coupon couru est calculé actuel/actuel dans la période, la convention « de rue » des manuels.
+   Le modèle ne prétend pas suivre la convention propre au marché canadien pour les obligations du gouvernement du
+   Canada, qui n'a pas été vérifiée ici contre une source primaire. Les nombres attendus des tests viennent de
+   `tools/reference/bond_reference.py`, écrit séparément.
 
 ## 2. Le monde extérieur : `src/Deskbook.Infrastructure/`
 
@@ -79,12 +84,12 @@ qui porte les règles.
     précision fixe garde l'échelle publiée. Chaque instruction est `IF NOT EXISTS` ou `OR REPLACE` : `db init` se relance.
 12. **`Postgres/PostgresStore.cs`** : tout le SQL, écrit à la main avec des paramètres (`$1`, `$2`…), jamais de
     concaténation de valeurs. Les écritures à plusieurs lignes sont dans une transaction : un import en conflit ne
-    laisse rien derrière lui. *Pourquoi pas d'ORM :* sept tables et des requêtes courtes ; le SQL visible est plus
+    laisse rien derrière lui. *Pourquoi pas d'ORM :* onze tables et des requêtes courtes ; le SQL visible est plus
     simple à expliquer et à vérifier.
-12b. **`Postgres/BondStore.cs`** : obligations, opérations sur obligations (ajout seulement, comme les autres) et
+12a. **`Postgres/BondStore.cs`** : obligations, opérations sur obligations (ajout seulement, comme les autres) et
     rendements, avec leur propre calendrier (`rate_fetch` filtré par groupe de séries, pour qu'une requête de
     rendements ne fasse pas croire que des taux de change ont été demandés).
-12a. **`Postgres/ReconStore.cs`** et la fin de `schema.sql` : la piste d'audit du rapprochement (exécutions avec
+12b. **`Postgres/ReconStore.cs`** et la fin de `schema.sql` : la piste d'audit du rapprochement (exécutions avec
     l'empreinte SHA-256 du fichier, écarts, notes de résolution). Un déclencheur (`deskbook_append_only`) refuse
     UPDATE et DELETE sur ces tables et sur `trade` : la règle « on n'efface pas » est tenue par la base, pas
     seulement par le code.
@@ -152,7 +157,8 @@ empreinte, sous l'utilisateur courant pour que les fichiers produits lui apparti
 
 ## English
 
-The order to read the code in, and for each stop what it does and why it is shaped that way. About an hour.
+The order to read the code in, and for each stop what it does and why it is shaped that way. About two hours; the
+FX book alone (stops 0 to 7, 9 to 12, 13 to 16) takes one.
 
 ### 0. The rules: `docs/problem.md`
 
@@ -198,17 +204,20 @@ No database, no network, no clock: the easiest part to test, so the part that ca
    and for an unknown reference names the unconfirmed trades with the same economics. Breaks always come out in
    the same order.
 8. **`Attribution.cs`**: the source attribution and the fictional notice, in one place.
-8b. **`Translation.cs`**: a CAD book shown in another currency. Value = CAD value / today's rate; each P&L part is
+8a. **`Translation.cs`**: a CAD book shown in another currency. Value = CAD value / today's rate; each P&L part is
    converted at today's rate, and the translation effect = previous CAD value × (1 / today's rate − 1 / previous
    rate). *Why that part:* without it the converted parts stop adding up to the total as soon as the rate moves;
    with it the equality is exact, and a test checks it.
-8a. **`Bonds/`**: the bond book. `Bond` (semi-annual coupon, periods counted back from maturity to keep month
+8b. **`Bonds/`**: the bond book. `Bond` (semi-annual coupon, periods counted back from maturity to keep month
    ends), `YieldCurve` (2 to 10-year yields, linear interpolation in years, refusal outside the curve), `BondPricer`
    (price = sum of cash flows discounted at (1 + y/2)^(k − 1 + w), w = share of the period left; accrued
    actual/actual; DV01 by repricing at ±1 bp), `BondBookCalculator` (value = bonds at full price + the trades'
    cash; P&L = held + new trades). *Why `double` here:* `decimal` has no fractional power; each present value is
    rounded to 10 decimals before it enters a `decimal` sum. *Why cash is in the value:* buying at a fair price must
-   change nothing, and a coupon received offsets the full price's drop on the coupon date.
+   change nothing, and a coupon received offsets the full price's drop on the coupon date. *Convention:* accrued
+   interest is actual/actual within the period, the textbook street convention. The model does not claim to follow
+   the Canadian market's own convention for Government of Canada bonds, which has not been checked here against a
+   primary source. The tests' expected numbers come from `tools/reference/bond_reference.py`, written separately.
 
 ### 2. The outside world: `src/Deskbook.Infrastructure/`
 
@@ -224,10 +233,10 @@ No database, no network, no clock: the easiest part to test, so the part that ca
     published precision. Every statement is `IF NOT EXISTS` or `OR REPLACE`: `db init` can be rerun.
 12. **`Postgres/PostgresStore.cs`**: all the SQL, hand-written with parameters (`$1`, `$2`…), never values
     concatenated in. Multi-row writes run in one transaction: a conflicting import leaves nothing behind. *Why no
-    ORM:* seven tables and short queries; visible SQL is simpler to explain and to check.
-12b. **`Postgres/BondStore.cs`**: bonds, bond trades (insert-only, like the others) and yields, with their own
+    ORM:* eleven tables and short queries; visible SQL is simpler to explain and to check.
+12a. **`Postgres/BondStore.cs`**: bonds, bond trades (insert-only, like the others) and yields, with their own
     calendar (`rate_fetch` filtered by series group, so a yields fetch never makes exchange rates look fetched).
-12a. **`Postgres/ReconStore.cs`** and the end of `schema.sql`: the reconciliation audit trail (runs with the file's
+12b. **`Postgres/ReconStore.cs`** and the end of `schema.sql`: the reconciliation audit trail (runs with the file's
     SHA-256, breaks, resolution notes). A trigger (`deskbook_append_only`) refuses UPDATE and DELETE on those
     tables and on `trade`: the "nothing is erased" rule is held by the database, not only by the code.
 
